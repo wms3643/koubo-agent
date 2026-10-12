@@ -145,8 +145,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = {"configurable": {"thread_id": thread_id}}
 
     conn = open_checkpoint_db(config)
-    app = build_graph(config, checkpointer=make_checkpointer(conn))
     try:
+        app = build_graph(config, checkpointer=make_checkpointer(conn))
         if args.status:
             snapshot = app.get_state(cfg)
             values = (snapshot.values if snapshot else {}) or {}

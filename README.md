@@ -2,7 +2,7 @@
 
 口播视频剪辑的多代理编排项目。系统将剪辑、字幕、动效和质检中的内容判断交给专业代理，将转写、裁切、字幕重映射、渲染和媒体检查交给确定性工具执行。
 
-仓库包含两套编排入口：`langgraph_app/` 提供 LangGraph 标准流程、对话主管和本地 Web 界面；`plugin/`、`agents/` 与 `profile/` 保留 DeepSeek Harness（DSH）集成。两者共用 `kb.py` 与 `pipeline/` 中的视频处理内核。当前项目面向本地运行，尚不是已部署的多用户服务。
+仓库包含两套编排入口：`langgraph_app/` 提供 LangGraph 标准流程、对话主管和本地 Web 界面；`plugin/`、`agents/` 与 `profile/` 提供 DeepSeek Harness（DSH）集成。两者共用 `kb.py` 与 `pipeline/` 中的视频处理内核，支持本地项目管理与阶段续跑。
 
 ## 架构
 
@@ -34,7 +34,7 @@ LangGraph 标准流程通过检查点和失败原因路由支持暂停、恢复�
 
 ## 运行要求
 
-- Python 环境需安装 LangGraph、LangChain、FastAPI、Uvicorn 及各处理阶段所需的依赖。仓库尚无统一依赖锁定文件，部署前需固定并验证版本。
+- Python 3.13，编排和 Web 服务依赖由 `requirements.txt` 固定版本；开发与测试依赖见 `requirements-dev.txt`。转写及动效依赖按处理阶段安装。
 - FFmpeg 和 FFprobe 需位于 `PATH`；烧录字幕需要包含 `libass` 的 FFmpeg 构建。
 - 转写需要可用的 `faster-whisper` 模型与计算环境；动效渲染需要 HyperFrames。
 - 通过 `LK_API_KEY` 或 `YUANQI_API_KEY` 提供模型网关密钥；可用 `LK_BASE_URL`、`KB_TEXT_MODEL`、`KB_VISION_MODEL` 覆盖模型配置。
@@ -43,8 +43,21 @@ LangGraph 标准流程通过检查点和失败原因路由支持暂停、恢复�
 在仓库根目录启动本地 Web 服务：
 
 ```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m langgraph_app.webapp.server
+```
+
+检查点与会话记录支持 PostgreSQL 持久化。设置 `DATABASE_URL` 后执行初始化，再启动应用：
+
+```powershell
+$env:DATABASE_URL = 'postgresql://koubo:your-password@127.0.0.1:5432/koubo'
+python -m langgraph_app.database init
+python -m langgraph_app.database check
 python -m langgraph_app.webapp.server
 ```
+
+以上 `python` 应使用已安装依赖的解释器。数据库容器、连接配置、备份和集成测试步骤见 [部署与运行](docs/deployment.md)。未设置 `DATABASE_URL` 时使用本地 SQLite；选用 PostgreSQL 后，连接或迁移错误会阻止启动。
 
 默认监听 [http://127.0.0.1:8760/](http://127.0.0.1:8760/)。标准流程的命令行入口为：
 
@@ -57,10 +70,10 @@ python -m langgraph_app.run projects/my-project --status
 
 ## 验证
 
-离线测试使用替身内核与模型，不执行真实转写或视频渲染：
+流程测试使用替身内核与模型，不执行真实转写或视频渲染。存储集成测试连接真实 PostgreSQL，覆盖检查点恢复、人工审批续跑、会话持久化和删除：
 
 ```powershell
 python -m pytest langgraph_app/tests -q -p no:cacheprovider
 ```
 
-DSH 集成另有 `tools/` 下的自检脚本，运行它们需要对应的 Node.js、DSH 与媒体依赖。配置方式见 [DSH 子代理说明](agents/README.md)。当前检查点使用 SQLite，媒体产物保存在本地文件系统。[PostgreSQL 设计](docs/postgres-design.md) 尚未接入应用。
+DSH 集成另有 `tools/` 下的自检脚本，运行它们需要对应的 Node.js、DSH 与媒体依赖。配置方式见 [DSH 子代理说明](agents/README.md)。媒体产物保存在项目目录；PostgreSQL 运行表及业务数据模型见 [数据库架构与实施规范](docs/postgres-design.md)。

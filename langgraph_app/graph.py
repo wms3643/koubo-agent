@@ -59,21 +59,27 @@ def _assert_complete(nodes: dict[str, NodeFn]) -> None:
         )
 
 
-def open_checkpoint_db(config: AppConfig) -> sqlite3.Connection:
-    """打开 SQLite 检查点库，返回**连接**。
+def open_checkpoint_db(config: AppConfig, *, purpose: str = "pipeline"):
+    """打开所选后端的检查点连接，由调用方负责关闭。"""
+    if purpose not in {"pipeline", "chat"}:
+        raise ValueError("unknown checkpoint purpose")
+    if config.database_url:
+        from .storage import connect_postgres
 
-    ⚠️ 为什么返回连接而不是 Saver：`SqliteSaver.from_conn_string()` 是上下文管理器，
-    退出即关库。若在 `build_graph()` 内部用它，函数一返回连接就没了 ——
-    表现是"第一次跑正常、恢复时读不到检查点"，而且**不报错**。
-    所以连接的生命周期由调用方持有（`run.py` 用 try/finally 关掉）。
-    """
+        return connect_postgres(config, schema=f"koubo_{purpose}")
     path = Path(config.checkpoint_db)
+    if purpose == "chat":
+        path = path.parent / "chat.sqlite"
     path.parent.mkdir(parents=True, exist_ok=True)
-    return sqlite3.connect(str(path), check_same_thread=False)
+    return sqlite3.connect(str(path), check_same_thread=False, timeout=30)
 
 
-def make_checkpointer(conn: sqlite3.Connection):
-    """把连接包成 LangGraph 的 checkpointer（`SqliteSaver`）。"""
-    from langgraph.checkpoint.sqlite import SqliteSaver
+def make_checkpointer(conn):
+    """用同一接口构造 SQLite 或 PostgreSQL 检查点存储。"""
+    if isinstance(conn, sqlite3.Connection):
+        from langgraph.checkpoint.sqlite import SqliteSaver
 
-    return SqliteSaver(conn)
+        return SqliteSaver(conn)
+    from langgraph.checkpoint.postgres import PostgresSaver
+
+    return PostgresSaver(conn)

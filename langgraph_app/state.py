@@ -1,6 +1,6 @@
 """图状态模型。
 
-⭐ **状态必须能被 checkpointer 序列化**（我们用 SQLite 存检查点，"断点续跑"靠它）。
+状态必须能被检查点存储序列化，以支持 SQLite 和 PostgreSQL 后端的恢复。
 所以状态里**只放 JSON 原生类型** —— `KernelResult` 这种 dataclass 一律转成 dict 再存，
 读取时再还原。把 dataclass 直接塞进状态，今天能跑、换个序列化器就炸，
 属于"埋一个以后才发作的雷"，不值得。
@@ -115,7 +115,7 @@ REPORT_KEEP_WHOLE = frozenset({"causes"})
 
 
 def _trim_report(report: dict) -> dict:
-    """把报告里的长列表截断 —— 状态要进 SQLite 并被**每一步**重写。
+    """截断报告中的长列表，减少各阶段检查点的存储开销。
 
     ⚠️ 只截列表：标量与字典（`checks` / `stats` / `error`）是判读要用的，动不得；
     列表类（`frames` / `junction_frames` / `segments` / `off_block_segments`）动辄几十上百条，
@@ -139,7 +139,7 @@ def result_to_dict(result: KernelResult) -> dict[str, Any]:
     """把内核结果压成 JSON 原生 dict。
 
     ⚠️ 刻意**丢掉** `stdout_tail` / `stderr_tail` 的完整内容、只留尾部若干字符：
-    状态要进 SQLite 并被反复读写，把几十 KB 日志灌进去会让每个检查点都很重。
+    状态要写入检查点存储并被反复读写，完整日志会增加每个检查点的开销。
     排查现场需要完整日志时，去看内核自己写盘的报告（契约也要求以写盘报告为准）。
     """
     return {

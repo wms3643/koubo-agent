@@ -195,7 +195,7 @@ SYSTEM = """\
 class Director:
     agent: Any
     ctx: ToolContext
-    checkpointer: InMemorySaver
+    checkpointer: Any
 
     def cfg(self, session_id: str) -> dict:
         return {"configurable": {"thread_id": session_id},
@@ -211,7 +211,7 @@ def make_director(config: AppConfig, project: Path | None = None,
     之后可以用 `use_project` 工具切换；提示词里那句"当前绑定的项目"是**每轮现算**的
     （`prompt` 传函数而不是字符串），所以换项目不必重建 agent，也就不会丢对话记忆。
 
-    `checkpointer` 可注入：默认内存态（测试用），服务端传 SQLite 的，
+    `checkpointer` 可注入：默认内存态（测试用），服务端传持久化 Saver，
     这样**重启服务后对话记忆还在**。
     """
     ctx = ToolContext(project=project, config=config,

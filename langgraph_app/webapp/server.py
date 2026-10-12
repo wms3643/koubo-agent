@@ -1,25 +1,8 @@
-"""编排台后端 —— 把 `langgraph_app` 包一层 HTTP，让运行**看得见、拦得住、点得动**。
+"""编排服务的 HTTP 接口、运行控制和 SSE 事件流。
 
-它只做三件事，判断逻辑一行都不重写：
-
-    1. **看得见** —— 后台线程跑 `app.stream(..., stream_mode="updates")`，
-       每个节点跑完就把它的状态更新推进队列；前端用 SSE 实时收。
-       "下一个该谁跑"不问推测，直接读 `app.get_state().next` —— 那是权威答案。
-    2. **拦得住** —— 遇到 `interrupt()` 就如实把问题交出去，停下来等；
-       批准/拒绝**不重试、不自动**，必须由人来点。
-    3. **点得动** —— 批准 = 用 `Command(resume=...)` 在**同一个 thread_id** 上再跑一次
-       （与 `run.py --approve` 完全同一条路）。所以界面里没有第二套语义。
-
-两处刻意的取舍：
-
-    · **一次只允许一个运行在跑**。不是偷懒：本应用的状态在 SQLite 检查点库里，
-      两路并发写同一份库会互相踩；而"同时跑两片"对个人工具没有实际价值。
-      并发请求会拿到 409 和一句明确的话，而不是一个间歇性的数据库锁错误。
-    · **读状态不需要模型**。`/api/state` 用一套"哑节点"编译图（只为拿到 checkpointer
-      的读能力），这样没有密钥也能看状态 —— 否则用户会看到"看状态也要密钥"这种怪事。
-
-密钥**不落盘、不进代码**：优先环境变量，其次从用户自己那份元气文档里现场读，
-绝不复制到本项目的任何文件里。
+流程状态通过 LangGraph 检查点读取，人工审批通过同一 thread_id 恢复。
+单进程持有任务队列与运行锁，并发启动标准流程时返回 409。
+检查点和会话记录由配置选择 SQLite 或 PostgreSQL；状态查询不调用模型。
 """
 
 from __future__ import annotations
@@ -33,6 +16,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -628,7 +612,35 @@ def _artifacts(config: AppConfig, values: dict) -> list[dict]:
 # ============================================================================
 #  HTTP 层
 # ============================================================================
-app = FastAPI(title="口播剪辑编排台", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def _lifespan(_app):
+    cfg = _config()
+    if cfg.database_url:
+        from ..storage import check_database
+
+        check_database(cfg)
+    yield
+    for c in list(_CONVS.values()):
+        if c.conn is not None:
+            c.conn.close()
+            c.conn = None
+            c.director = None
+
+
+app = FastAPI(title="口播剪辑编排台", docs_url=None, redoc_url=None, lifespan=_lifespan)
+
+
+@app.get("/api/health")
+def health():
+    cfg = _config()
+    if cfg.database_url:
+        from ..storage import check_database
+
+        try:
+            check_database(cfg)
+        except Exception:
+            raise HTTPException(503, "Database unavailable or migration required") from None
+    return {"status": "ok", "storage": cfg.storage_backend}
 
 
 @app.get("/")
@@ -844,7 +856,7 @@ def _discard_tree(staging: Path) -> None:
 #   · 用户要的是"打开就能说话" —— 不能让"先在下拉框里选个项目"成为开口的前提；
 #   · 会话要能留得住（刷新页面、重启服务都还在），这是聊天界面的基本预期；
 #   · 一个会话应当能中途换项目（用户传了新视频，或者说"看另一个项目"）。
-# 所以：会话自带 id、**可选**的绑定项目、落盘的事件流水，以及落到 SQLite 的模型记忆。
+# 会话包含标识、可选的项目绑定、持久化事件和独立检查点中的模型记忆。
 MAX_EVENTS = 600           # 单个会话保留的事件条数（超了从头部丢）
 MAX_CONVERSATIONS = 60     # 会话总数上限（超了先丢最久没动且没消息的）
 
@@ -860,7 +872,7 @@ class Conversation:
 
     # ---- 以下几项只在内存里，**不落盘** ----
     director: Any = None
-    conn: Any = None                      # 这个会话专属的 SQLite 连接（见 _ensure_director）
+    conn: Any = None                      # 会话专属检查点连接
     # ⛔ 付费授权位：**只能由 /api/chat/authorize 写入**。
     #    主管的任何工具都碰不到它 —— 闸门不能押在会自己说话的东西上（铁律 11）。
     #    刻意**不落盘**：授权是"这一次"的事，不该在重启后还活着。
@@ -876,41 +888,21 @@ class Conversation:
 
 _CONVS: dict[str, Conversation] = {}
 _CONVS_LOCK = threading.Lock()
+_PERSIST_LOCK = threading.Lock()
 _CONVS_LOADED = False
 _TURN_OWNER: dict[str, str] = {}          # turn_id → conversation id（流式端点靠它定位）
 
 
-def _state_dir(cfg: AppConfig) -> Path:
-    return Path(cfg.checkpoint_db).parent
-
-
-def _convs_file(cfg: AppConfig) -> Path:
-    return _state_dir(cfg) / "conversations.json"
-
-
-def _chat_memory_db(cfg: AppConfig) -> Path:
-    return _state_dir(cfg) / "chat.sqlite"
-
-
 def _persist(cfg: AppConfig) -> None:
-    """把会话列表写到盘上。原子写（先写 .tmp 再 replace），避免半截文件。
+    """持久化标题、绑定和事件；模型上下文由独立检查点存储管理。"""
+    from ..storage import save_conversations
 
-    ⚠️ 只写"可重建的东西"（标题/绑定/事件流水）。模型记忆不在这里 ——
-    它在 `chat.sqlite` 里由 checkpointer 管，两者不能混（混了就会出现
-    "事件说做过、记忆说没做过"这种对不上的状态）。
-    """
-    out = {"version": 1,
-           "conversations": [c.blob() for c in
-                             sorted(_CONVS.values(), key=lambda c: c.updated, reverse=True)]}
-    path = _convs_file(cfg)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(out, ensure_ascii=False, default=str), encoding="utf-8")
-        os.replace(tmp, path)
-    except OSError:
-        # 落盘失败不该让一次对话崩掉：内存里的会话仍然可用，只是重启后丢历史。
-        pass
+    with _PERSIST_LOCK:
+        with _CONVS_LOCK:
+            out = {"version": 1, "conversations": [
+                c.blob() for c in sorted(_CONVS.values(), key=lambda c: c.updated, reverse=True)
+            ]}
+        save_conversations(cfg, out)
 
 
 def _load_conversations(cfg: AppConfig) -> None:
@@ -918,14 +910,9 @@ def _load_conversations(cfg: AppConfig) -> None:
     with _CONVS_LOCK:
         if _CONVS_LOADED:
             return
-        _CONVS_LOADED = True
-        path = _convs_file(cfg)
-        if not path.is_file():
-            return
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return
+        from ..storage import load_conversations
+
+        data = load_conversations(cfg)
         for row in (data.get("conversations") or []):
             cid = str(row.get("id") or "")
             if not cid or cid in _CONVS:
@@ -937,14 +924,13 @@ def _load_conversations(cfg: AppConfig) -> None:
                 updated=float(row.get("updated") or time.time()),
                 events=list(row.get("events") or []),
             )
+        _CONVS_LOADED = True
 
 
 def _ensure_director(cfg: AppConfig, c: Conversation) -> Any:
     """给会话备一个主管（首次用时才建）。**同一个会话的多轮记忆靠它 + checkpointer。**"""
     if c.director is not None:
         return c.director
-    import sqlite3
-
     from ..agent.director import make_director
     from ..graph import make_checkpointer
 
@@ -959,12 +945,13 @@ def _ensure_director(cfg: AppConfig, c: Conversation) -> Any:
         if pdir is None:               # 项目被删了就解绑，别让会话卡在一个不存在的对象上
             c.project = None
 
-    # 每个会话一个连接：SQLite 连接不是线程安全的，而不同会话可能在不同线程里跑。
-    # 独立连接 + 30 秒 busy timeout ⇒ 让 SQLite 自己去排队，比在 Python 里加全局大锁稳。
-    db = _chat_memory_db(cfg)
-    db.parent.mkdir(parents=True, exist_ok=True)
-    c.conn = sqlite3.connect(str(db), check_same_thread=False, timeout=30)
-    c.director = make_director(cfg, pdir, checkpointer=make_checkpointer(c.conn))
+    c.conn = open_checkpoint_db(cfg, purpose="chat")
+    try:
+        c.director = make_director(cfg, pdir, checkpointer=make_checkpointer(c.conn))
+    except Exception:
+        c.conn.close()
+        c.conn = None
+        raise
     c.director.ctx.paid_ok = c.paid_ok
     return c.director
 
@@ -990,35 +977,41 @@ def _new_conversation(cfg: AppConfig, project: str | None = None,
     c = Conversation(id=cid, project=pname, title=(title or (pname or "新对话")))
     with _CONVS_LOCK:
         _CONVS[cid] = c
-        _prune_conversations()
+        _prune_conversations(cfg)
     _persist(cfg)
     return c
 
 
-def _prune_conversations() -> None:
+def _prune_conversations(cfg: AppConfig) -> None:
     """会话太多时丢最久没动、且**一句都没说过**的。有内容的会话不自动删。"""
     if len(_CONVS) <= MAX_CONVERSATIONS:
         return
     idle = sorted((c for c in _CONVS.values() if not c.events),
                   key=lambda c: c.updated)
     for c in idle[:len(_CONVS) - MAX_CONVERSATIONS]:
-        _drop_conversation(c.id)
+        _drop_conversation(c.id, cfg)
 
 
-def _drop_conversation(cid: str) -> None:
-    c = _CONVS.pop(cid, None)
+def _delete_memory(c: Conversation, cfg: AppConfig) -> None:
+    """删除持久化记忆；重启后未创建主管的会话也需要清理。"""
+    conn = c.conn or open_checkpoint_db(cfg, purpose="chat")
+    try:
+        make_checkpointer(conn).delete_thread(c.id)
+    finally:
+        if c.conn is None:
+            conn.close()
+
+
+def _drop_conversation(cid: str, cfg: AppConfig) -> None:
+    c = _CONVS.get(cid)
     if c is None:
         return
-    try:
-        if c.director is not None and hasattr(c.director.checkpointer, "delete_thread"):
-            c.director.checkpointer.delete_thread(cid)
-    except Exception:  # noqa: BLE001 —— 删不掉记忆也不该阻塞"删会话"这个动作
-        pass
-    try:
-        if c.conn is not None:
-            c.conn.close()
-    except Exception:  # noqa: BLE001
-        pass
+    if c.busy:
+        raise HTTPException(409, "会话正在运行，暂时不能删除。")
+    _delete_memory(c, cfg)
+    if c.conn is not None:
+        c.conn.close()
+    _CONVS.pop(cid, None)
 
 
 def _note(c: Conversation, text: str) -> None:
@@ -1069,7 +1062,7 @@ def conversation_delete(cid: str):
     _load_conversations(cfg)
     if cid not in _CONVS:
         raise HTTPException(404, "没有这个会话")
-    _drop_conversation(cid)
+    _drop_conversation(cid, cfg)
     _persist(cfg)
     return {"deleted": cid}
 
@@ -1119,15 +1112,14 @@ async def conversation_clear(cid: str):
     c = _conv(cfg, cid)
     if c.busy:
         raise HTTPException(409, "这个会话正在跑，等它说完再清。")
-    c.events.clear()
-    c.paid_ok = False
     # 记忆清掉的做法就是"换一个主管"（同一个 thread_id 上的历史留在库里，
     # 所以必须显式删掉那个 thread，否则新主管会读回旧上下文）。
-    try:
-        if c.director is not None and hasattr(c.director.checkpointer, "delete_thread"):
-            c.director.checkpointer.delete_thread(c.id)
-    except Exception:  # noqa: BLE001
-        pass
+    _delete_memory(c, cfg)
+    if c.conn is not None:
+        c.conn.close()
+        c.conn = None
+    c.events.clear()
+    c.paid_ok = False
     c.director = None
     c.updated = time.time()
     _persist(cfg)
@@ -1203,8 +1195,12 @@ async def chat(request: Request):
             except Exception:  # noqa: BLE001
                 pass
             _touch_events(c)
-            _persist(cfg)
-            q.put(None)
+            try:
+                _persist(cfg)
+            except Exception:
+                q.put({"type": "error", "message": "会话记录保存失败，请检查存储服务。"})
+            finally:
+                q.put(None)
 
     threading.Thread(target=worker, daemon=True, name=f"chat-{turn_id}").start()
     return {"turn_id": turn_id, "conversation_id": c.id,

@@ -120,6 +120,11 @@ class AppConfig:
     checkpoint_db: Path = field(
         default_factory=lambda: REPO_ROOT / "langgraph_app" / ".state" / "checkpoints.sqlite"
     )
+    database_url: str | None = field(default=None, repr=False)
+
+    @property
+    def storage_backend(self) -> str:
+        return "postgres" if self.database_url else "sqlite"
 
     @classmethod
     def from_env(cls, **overrides) -> "AppConfig":
@@ -130,6 +135,7 @@ class AppConfig:
             LK_BASE_URL / LK_API_KEY / YUANQI_API_KEY —— 模型网关
             KB_TEXT_MODEL / KB_VISION_MODEL / KB_TEMPERATURE —— 模型选择
             KB_CHECKPOINT_DB                          —— 断点续跑库位置
+            DATABASE_URL                              —— PostgreSQL 连接；设置后启用服务端存储
         """
         env = os.environ.get
         key = next((env(n) for n in KEY_ENV_NAMES if env(n)), None)
@@ -148,6 +154,7 @@ class AppConfig:
             model=model,
             checkpoint_db=Path(env("KB_CHECKPOINT_DB")
                                or (REPO_ROOT / "langgraph_app" / ".state" / "checkpoints.sqlite")),
+            database_url=(env("DATABASE_URL") or "").strip() or None,
         )
         if not overrides:
             return cfg

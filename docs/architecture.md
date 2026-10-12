@@ -25,7 +25,7 @@ LangGraph 和 DSH 是两套独立编排入口，不共享会话状态。两者�
 
 ## 编排方式
 
-`langgraph_app/run.py` 将标准流程编译为 LangGraph 图。节点通过 `Command` 路由下一步，`routing.py` 根据结构化 `cause` 选择继续、重试、回退或暂停。SQLite 检查点支持同一 `thread_id` 的续跑与人工中断。
+`langgraph_app/run.py` 将标准流程编译为 LangGraph 图。节点通过 `Command` 路由下一步，`routing.py` 根据结构化 `cause` 选择继续、重试、回退或暂停。检查点支持 SQLite 和 PostgreSQL，同一 `thread_id` 可续跑并恢复人工中断。`DATABASE_URL` 控制后端选择，`langgraph_app/storage.py` 管理 PostgreSQL 连接、会话记录与初始化。
 
 `langgraph_app/agent/director.py` 提供按需执行的对话入口。主管可查看项目、准备公共素材、处理跨角色装配任务并调用四个委派工具。每个委派工具启动一次独立的专业代理调用；子代理使用各自的工具白名单，其结论压缩后返回主管。委派结果需要结合工具返回与实际产物核对，不能仅凭自然语言结论认定成功。
 
@@ -35,4 +35,4 @@ DSH 入口使用 `plugin/src/index.js` 注册 `kb_*` 工具，`agents/subagents.
 
 内核命令输出 JSON 报告：退出码 `0` 表示成功，`2` 表示带 `cause` 的业务失败，`1` 表示运行异常。编排层按原因路由，并对单阶段回退、重复错误和跨代理回路设置上限。付费 BGM、强制重转写等操作需要显式授权或例外记录。
 
-当前运行路径使用本地文件与 SQLite，没有多用户隔离、对象存储或分布式任务调度。标准图中的字幕和动效分支按既定顺序推进；对话入口可按请求分别委派，但并行写入仍需遵守产物依赖。自动质检不能保证语义、审美和全部画面缺陷都被发现。数据库扩展方案见 [PostgreSQL 设计草案](postgres-design.md)。
+运行以项目目录保存素材与产物，以 SQLite 或 PostgreSQL 保存检查点。PostgreSQL 模式下，标准流程、对话记忆和会话列表分别存放于 `koubo_pipeline`、`koubo_chat` 与 `koubo_app` schema。Web 服务仍采用单进程运行，后台任务队列与运行锁在进程内维护；数据库后端的切换不改变任务并发策略。标准图中的字幕和动效分支按既定顺序推进。语义、审美和视觉缺陷需要结合抽帧证据进行复核。存储的表结构、事务边界、迁移步骤与验收标准见 [数据库架构与实施规范](postgres-design.md)。
