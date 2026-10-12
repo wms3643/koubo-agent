@@ -1,0 +1,20 @@
+# dsh-plugin-koubo 自带的 patch 层（由 package.json 的 `dsh.bundle` 声明）。
+#
+# 格式与 profile 的 cordis.patch.yml 相同：**顶层数组**（patchList），`insert` 后是**数组**。
+# 依据：`dsh --profile web --dump-config-schema` 的 $defs.patch / $defs.entryList。
+#
+# ⚠️ 二选一：本文件与 `profile/cordis.patch.yml` **都**会插入 id=plugin-koubo 的条目。
+#    两个都用会出现同名工具重复注册 —— 只走其中一条路线：
+#      · 官方路线（本条）：dsh plugin --profile web add <本仓库>/plugin
+#      · 已验证路线：dsh --profile web --patch <本仓库>/profile/cordis.patch.yml
+#
+# 这里**不带 config**：默认值由插件自身从环境变量推导
+#   KB_PYTHON / KB_ENTRY / KB_PROJECTS
+# 本仓库内开发时，插件会用「plugin/ 的上一层」自动找到 kb.py，无需配置。
+# 作为 npm 包安装到别处时，请用环境变量或 profile 的 config 指定这三项，
+# 否则工具会返回 cause=kernel_missing 并给出修复提示（fail-loud，不会静默跑错）。
+
+- insert:
+    # 按包名挂载自身，由 profile 的 node_modules 解析
+    - id: plugin-koubo
+      name: 'dsh-plugin-koubo'

@@ -1,0 +1,1789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>口播剪辑 · 编排台</title>
+<style>
+:root{
+  --bg:#f5f5f3; --panel:#ffffff; --panel2:#fafaf8; --sunken:#eeeeea;
+  --line:#e7e6e0; --line2:#d6d5cd;
+  --tx:#191917; --tx2:#5b5b55; --tx3:#8e8e87;
+  /* 用户气泡 + 头像底色：整页只有这两处用"重色"，其余一律让位给内容 */
+  --ubb:#e7edfb; --ubt:#1a3563;
+  --avbg:#1e1e1c; --avfg:#ffffff;
+  --acc:#2b62c4; --accb:#e9effb; --accl:#c2d3f0;
+  --ok:#2c7a4b; --okb:#e7f3ec; --okl:#bfe0cc;
+  --warn:#96580a; --warnb:#fdf0dd; --warnl:#f0d5a8;
+  --err:#ad2f2a; --errb:#fbecea; --errl:#efc4c1;
+  --run:#1d5ea6; --runb:#e8f1fb; --runl:#bcd8f2;
+  --gate:#67409a; --gateb:#f1ebfa; --gatel:#d3c3ee;
+  --r:12px; --r2:9px;
+  --sh1:0 1px 2px rgba(20,20,18,.05), 0 3px 10px rgba(20,20,18,.04);
+  --sh2:0 2px 6px rgba(20,20,18,.07), 0 14px 36px rgba(20,20,18,.09);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Cascadia Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#121212; --panel:#1b1b1a; --panel2:#212120; --sunken:#181817;
+    --line:#2d2d2b; --line2:#40403e;
+    --tx:#eeeee9; --tx2:#a9a9a2; --tx3:#7a7a73;
+    --ubb:#22314e; --ubt:#dbe6fb;
+    --avbg:#3a3a3e; --avfg:#f2f2f0;
+    --acc:#7db4ea; --accb:#152538; --accl:#27456a;
+    --ok:#6cc48d; --okb:#14301f; --okl:#24512f;
+    --warn:#e0a34a; --warnb:#33240d; --warnl:#5a4114;
+    --err:#ef8b85; --errb:#331918; --errl:#5c2b28;
+    --run:#7db4ea; --runb:#12253a; --runl:#26456b;
+    --gate:#b28ce8; --gateb:#241a38; --gatel:#463067;
+    --sh1:0 1px 2px rgba(0,0,0,.30), 0 3px 10px rgba(0,0,0,.24);
+    --sh2:0 2px 6px rgba(0,0,0,.40), 0 14px 36px rgba(0,0,0,.34);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--tx);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,select,input{font:inherit;color:inherit}
+h1{font-size:15px;font-weight:600;margin:0}
+h2{font-size:13px;font-weight:600;margin:0}
+a{color:var(--run);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.app{max-width:1720px;margin:0 auto;padding:16px 18px 40px}
+
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;
+  border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);flex:none}
+.dot.run{background:var(--run);animation:pulse 1.1s infinite}
+.dot.ok{background:var(--ok)} .dot.err{background:var(--err)} .dot.gate{background:var(--gate);animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.28}}
+
+.grid{display:grid;grid-template-columns:326px minmax(0,1fr) 396px;gap:14px;align-items:start}
+@media (max-width:1360px){.grid{grid-template-columns:300px minmax(0,1fr)}.col-r{grid-column:1/-1}}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.card>header{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.card>header .tag{margin-left:auto;font-size:11px;color:var(--tx3)}
+.card .body{padding:13px 14px}
+.card .body+.body{border-top:1px solid var(--line)}
+
+label.f{display:block;font-size:12px;color:var(--tx2);margin:0 0 5px}
+select,input[type=text]{width:100%;padding:8px 10px;border:1px solid var(--line2);border-radius:var(--r2);
+  background:var(--sunken);outline:none}
+select:focus,input[type=text]:focus{border-color:var(--run)}
+.field{margin-bottom:11px}
+.field:last-child{margin-bottom:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+.chk{display:flex;gap:9px;align-items:flex-start;padding:7px 0;cursor:pointer}
+.chk input{margin:3px 0 0;flex:none;accent-color:var(--tx)}
+.chk .t{font-size:13px}
+.chk .d{font-size:11.5px;color:var(--tx3);line-height:1.45}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;
+  padding:10px 14px;border:1px solid var(--tx);background:var(--tx);color:var(--bg);
+  border-radius:var(--r2);cursor:pointer;font-weight:500;font-size:13.5px}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--tx);border-color:var(--line2)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{background:transparent;color:var(--err);border-color:var(--errl)}
+.btn.sm{padding:7px 11px;font-size:12.5px;width:auto}
+
+.scen{border:1px solid var(--line);border-radius:var(--r2);padding:9px 11px;margin-bottom:7px;cursor:pointer;background:var(--panel2)}
+.scen:hover{border-color:var(--line2)}
+.scen.on{border-color:var(--tx);background:var(--sunken)}
+.scen .h{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500}
+.scen .b{font-size:11.5px;color:var(--tx3);line-height:1.5;margin-top:3px}
+.scen .k{font-family:var(--mono);font-size:10.5px;color:var(--tx3);margin-left:auto}
+
+.warnbox{border:1px solid var(--warnl);background:var(--warnb);border-radius:var(--r2);
+  padding:9px 11px;font-size:12px;color:var(--warn);line-height:1.5}
+.infobox{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r2);
+  padding:9px 11px;font-size:12px;color:var(--tx2);line-height:1.5}
+.errbox{border:1px solid var(--errl);background:var(--errb);border-radius:var(--r2);
+  padding:9px 11px;font-size:12px;color:var(--err);line-height:1.5}
+
+.kv{display:flex;gap:10px;padding:4px 0;font-size:12px;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--tx3);flex:none;min-width:82px}
+.kv .v{font-family:var(--mono);font-size:11.5px;word-break:break-all}
+
+.steps{padding:6px 0}
+[data-owner="主管"]{--c:#7c7c76;--cb:#f0f0ec}
+[data-owner="剪裁策划"]{--c:#1d5ea6;--cb:#e8f1fb}
+[data-owner="字幕制作"]{--c:#0f7a63;--cb:#e2f4ef}
+[data-owner="特效设计"]{--c:#67409a;--cb:#f1ebfa}
+[data-owner="成片质检"]{--c:#96580a;--cb:#fdf0dd}
+@media (prefers-color-scheme: dark){
+  [data-owner="主管"]{--c:#a9a9a2;--cb:#262624}
+  [data-owner="剪裁策划"]{--c:#7db4ea;--cb:#12253a}
+  [data-owner="字幕制作"]{--c:#5ecfae;--cb:#0f2b24}
+  [data-owner="特效设计"]{--c:#b28ce8;--cb:#241a38}
+  [data-owner="成片质检"]{--c:#e0a34a;--cb:#33240d}
+}
+.step{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;
+  padding:7px 14px;border-left:3px solid var(--c);position:relative;min-height:42px}
+.step+.step{margin-top:2px}
+.step .n{font-family:var(--mono);font-size:11px;color:var(--tx3);text-align:right}
+.step .nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step .sub{font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.step .st{display:flex;align-items:center;gap:7px;flex:none}
+.step .own{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--cb);color:var(--c);white-space:nowrap}
+.step .badge{font-size:10.5px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--tx3);white-space:nowrap}
+.step[data-st="run"]{background:var(--runb)}
+.step[data-st="run"] .nm{color:var(--run)}
+.step[data-st="ok"]{background:transparent}
+.step[data-st="ok"] .badge{background:var(--okb);border-color:var(--okl);color:var(--ok)}
+.step[data-st="skip"] .badge{background:var(--sunken);color:var(--tx4,#6f6f68)}
+.step[data-st="fail"]{background:var(--errb)}
+.step[data-st="fail"] .badge{background:var(--errb);border-color:var(--errl);color:var(--err)}
+.step[data-st="gate"]{background:var(--gateb)}
+.step[data-st="gate"] .badge{background:var(--gateb);border-color:var(--gatel);color:var(--gate)}
+.step[data-st="done"]{background:var(--okb)}
+.step[data-kind="gate"]{opacity:.97}
+.spin{width:11px;height:11px;border:2px solid var(--runl);border-top-color:var(--run);border-radius:50%;
+  animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.routes{max-height:230px;overflow:auto}
+.r{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;padding:7px 14px;font-size:12px;
+  border-bottom:1px solid var(--line)}
+.r:last-child{border-bottom:0}
+.r .kind{font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:5px;background:var(--sunken);color:var(--tx2);white-space:nowrap;height:fit-content}
+.r.bad .kind{background:var(--errb);color:var(--err)}
+.r .tx{color:var(--tx2);line-height:1.5;word-break:break-word}
+.r .tx b{color:var(--tx);font-weight:500}
+.r .cause{font-family:var(--mono);font-size:11px;color:var(--err)}
+
+.logs{height:330px;overflow:auto;padding:8px 14px;font-family:var(--mono);font-size:11.5px;line-height:1.62}
+.logs .l{display:flex;gap:8px;padding:1px 0}
+.logs .t{color:var(--tx3);flex:none;width:44px;text-align:right}
+.logs .m{word-break:break-word}
+.logs .l.warn .m{color:var(--warn)} .logs .l.error .m{color:var(--err)}
+.logs .l.ok .m{color:var(--ok)} .logs .l.human .m{color:var(--gate);font-weight:500}
+.logs .l.note .m{color:var(--tx2)} .logs .l.dim .m{color:var(--tx3)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:99px;background:var(--errb);color:var(--err);border:1px solid var(--errl)}
+.chip.neutral{background:var(--sunken);color:var(--tx2);border-color:var(--line)}
+.chip.ok{background:var(--okb);color:var(--ok);border-color:var(--okl)}
+
+.arts .a{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.arts .a:last-child{border-bottom:0}
+.arts .a .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arts .a .sz{font-family:var(--mono);font-size:11px;color:var(--tx3);flex:none}
+.arts .a .go{flex:none}
+
+#modalHost{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;
+  background:rgba(20,20,18,.5);padding:24px;overflow:auto}
+#modalHost.on{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(760px,100%);
+  max-height:88vh;overflow:auto;box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.modal header{display:flex;align-items:center;gap:10px;padding:15px 20px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--panel);z-index:2}
+.modal header h1{font-size:15px}
+.modal .mbody{padding:18px 20px}
+.modal .mfoot{display:flex;gap:10px;padding:15px 20px;border-top:1px solid var(--line);
+  position:sticky;bottom:0;background:var(--panel)}
+.modal .mfoot .btn{width:auto;flex:1}
+.q{border:1px solid var(--gatel);background:var(--gateb);border-radius:var(--r2);padding:13px 15px;
+  color:var(--gate);font-size:13.5px;line-height:1.6;margin-bottom:14px}
+.price{font-family:var(--mono);font-size:20px;color:var(--tx);font-weight:600}
+video{width:100%;border-radius:var(--r2);background:#000;display:block;margin-bottom:13px}
+.hr{height:1px;background:var(--line);margin:15px 0}
+pre{font-family:var(--mono);font-size:11.5px;background:var(--sunken);border:1px solid var(--line);
+  border-radius:var(--r2);padding:11px;overflow:auto;max-height:230px;margin:0;white-space:pre-wrap;word-break:break-word}
+.mut{color:var(--tx3);font-size:12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ========================= 骨架：整页就是一次对话 =========================
+   目标不是"仪表盘里嵌个聊天框"，而是"打开就是对话"。
+   三条规矩：① 顶栏只有一行，靠一条细线跟内容分开；
+            ② 对话**不套边框卡片**，直接铺在页面上；
+            ③ 每条消息是"头像 + 内容"两栏，正文收在 840px 的阅读宽度里
+              （行太长会很难读，这也是"空"的主要来源 —— 不是留白，是没有骨架）。 */
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column}
+.app{flex:1;min-height:0;display:flex;flex-direction:column;
+  width:100%;max-width:1180px;margin:0 auto;padding:0 26px 18px}
+body.flowmode .app{max-width:1760px}
+
+/* ---- 顶栏：一行 ---- */
+.bar{display:flex;align-items:center;gap:9px;padding:13px 0;flex:none;position:relative;
+  border-bottom:1px solid var(--line)}
+.bar .ttl{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:46%}
+.bar .sub{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);
+  cursor:pointer;white-space:nowrap;background:var(--sunken);padding:4px 10px;border-radius:99px;
+  border:1px solid transparent;transition:.14s;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.bar .sub::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acc);flex:none}
+.bar .sub:hover{border-color:var(--line2);color:var(--tx)}
+.bar .sub.none{color:var(--tx3);background:transparent;border:1px dashed var(--line2)}
+.bar .sub.none::before{background:var(--tx3)}
+.bar .grow{flex:1;min-width:8px}
+.iconbtn{border:0;background:transparent;color:var(--tx2);cursor:pointer;width:30px;height:30px;
+  border-radius:8px;font-size:15px;line-height:1;flex:none;transition:.13s;
+  display:flex;align-items:center;justify-content:center}
+.iconbtn:hover{background:var(--sunken);color:var(--tx)}
+
+.menu{position:absolute;right:0;top:48px;z-index:30;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:6px;min-width:216px;box-shadow:var(--sh2)}
+.menu[hidden]{display:none}
+.menu button{display:block;width:100%;text-align:left;border:0;background:transparent;
+  padding:8px 11px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--tx);transition:.1s}
+.menu button:hover{background:var(--sunken)}
+.menu button.danger:hover{background:var(--errb);color:var(--err)}
+.menu .sep{height:1px;background:var(--line);margin:5px 4px}
+.menu .lb{font-size:11px;color:var(--tx3);padding:7px 11px 3px}
+.menu button.on::after{content:"✓";float:right;color:var(--ok)}
+
+/* ---- 主体：左＝会话列表，右＝对话 ---- */
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:236px minmax(0,1fr);
+  gap:24px;padding-top:16px}
+.wrap.side-off{grid-template-columns:0 minmax(0,1fr);gap:0}
+.wrap.side-off .convs{display:none}
+
+.convs{display:flex;flex-direction:column;gap:5px;min-height:0}
+.newconv{display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;
+  border:1px dashed var(--line2);border-radius:10px;background:transparent;color:var(--tx2);
+  cursor:pointer;font-size:13px;font-weight:500;transition:.14s}
+.newconv:hover{border-style:solid;border-color:var(--tx3);color:var(--tx);background:var(--panel)}
+.newconv svg{flex:none;opacity:.8}
+.convs .sec{font-size:11px;color:var(--tx3);padding:10px 12px 3px}
+.clist{flex:1;overflow:auto;display:flex;flex-direction:column;gap:2px;padding-right:2px}
+.citem{position:relative;border-radius:10px;padding:9px 28px 9px 12px;cursor:pointer;
+  border:1px solid transparent;transition:.13s}
+.citem:hover{background:var(--panel)}
+.citem.on{background:var(--panel);border-color:var(--line);box-shadow:var(--sh1)}
+.citem .t{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem .m{font-size:11.5px;color:var(--tx3);margin-top:3px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.citem .m .d{width:5px;height:5px;border-radius:50%;background:var(--run);
+  animation:pulse 1.1s infinite;flex:none}
+.citem .rm{position:absolute;right:5px;top:7px;opacity:0;color:var(--tx3);font-size:13px;
+  line-height:1;padding:4px 6px;border-radius:6px;transition:.12s}
+.citem:hover .rm{opacity:1}
+.citem .rm:hover{background:var(--errb);color:var(--err)}
+
+.convo{display:flex;flex-direction:column;min-height:0}
+.msgs{flex:1;overflow:auto;padding:16px 2px 10px;overscroll-behavior:contain}
+/* 空会话：欢迎块居中。第一眼看到的这一屏决定"它像不像个正经工具" */
+.msgs.empty{display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding-bottom:52px}
+.empty{text-align:center;max-width:460px;padding:0 16px}
+.empty .ei{width:48px;height:48px;border-radius:15px;background:var(--avbg);color:var(--avfg);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:var(--sh1)}
+.empty .et{font-size:20px;font-weight:650;letter-spacing:-.01em;line-height:1.35}
+.empty .es{font-size:13.5px;color:var(--tx3);margin-top:9px;line-height:1.65}
+
+/* 一条消息 = 头像 + 内容两栏。整块收在 840px 里并居中 ——
+   这是"看起来像聊天工具"和"看起来像后台表格"的分界。 */
+.mrow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
+  max-width:840px;margin:0 auto 18px;align-items:start}
+.mrow.me{grid-template-columns:minmax(0,1fr);justify-items:end}
+.trow{max-width:840px;margin:0 auto 10px;padding-left:43px}   /* 过程卡：跟正文左对齐 */
+.nrow{max-width:840px;margin:0 auto 14px;padding-left:43px;
+  color:var(--tx3);font-size:12.5px;line-height:1.65}
+.av{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;flex:none;background:var(--avbg);color:var(--avfg);box-shadow:var(--sh1)}
+
+.msg{font-size:14.5px;line-height:1.72;min-width:0;word-break:break-word}
+.msg.me{justify-self:end;width:fit-content;max-width:min(560px,82%);
+  background:var(--ubb);color:var(--ubt);padding:10px 15px;
+  border-radius:16px 16px 5px 16px;white-space:pre-wrap;
+  box-shadow:0 1px 2px rgba(20,20,18,.045)}
+.msg.bot{color:var(--tx)}
+.msg.bot.err{color:var(--err);background:var(--errb);border:1px solid var(--errl);
+  border-radius:10px;padding:10px 13px;font-size:13.5px}
+.msg.bot.note{color:var(--tx3);font-size:12.5px}
+.msg .cur{display:inline-block;width:7px;height:15px;background:var(--tx3);border-radius:1px;
+  vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2,start) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* markdown —— 主管爱用列表和粗体，纯文本会很难读 */
+.md>*:first-child{margin-top:0}
+.md>*:last-child{margin-bottom:0}
+.md p{margin:0 0 10px}
+.md ul,.md ol{margin:0 0 10px;padding-left:22px}
+.md li{margin:4px 0}
+.md li::marker{color:var(--tx3)}
+.md strong{font-weight:650}
+.md h3{margin:16px 0 8px;font-size:14.5px;font-weight:650}
+.md h4{margin:14px 0 7px;font-size:14px;font-weight:600}
+.md code{background:var(--sunken);border:1px solid var(--line);border-radius:5px;
+  padding:1px 5px;font-family:var(--mono);font-size:12.5px}
+.md pre{background:var(--sunken);border:1px solid var(--line);border-radius:10px;
+  padding:11px 13px;margin:0 0 10px;max-height:340px}
+.md pre code{background:none;border:0;padding:0;font-size:12.5px}
+.md blockquote{border-left:2px solid var(--line2);margin:0 0 10px;padding:2px 0 2px 12px;color:var(--tx2)}
+.md table{border-collapse:collapse;margin:0 0 10px;font-size:13px}
+.md th{background:var(--panel2);font-weight:600}
+.md th,.md td{border:1px solid var(--line);padding:6px 11px;text-align:left}
+.md hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.md a{color:var(--acc);text-decoration:none;border-bottom:1px solid var(--accl)}
+.md a:hover{border-color:var(--acc)}
+
+/* 工具调用：一张克制的卡片，点开看参数与返回。
+   它是**过程**不是内容 —— 所以不抢视觉，但要让"它真干了什么"看得见。 */
+.tool{border:1px solid var(--line);border-radius:11px;background:var(--panel);
+  overflow:hidden;box-shadow:0 1px 2px rgba(20,20,18,.03)}
+.tool .th{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;
+  font-size:12.5px;color:var(--tx2);transition:background .13s}
+.tool .th:hover{background:var(--panel2)}
+.tool .th .ar{color:var(--tx3);font-size:9px;transition:transform .15s;flex:none}
+.tool.fold .th .ar{transform:rotate(-90deg)}
+.tool .th .ic{color:var(--tx3);flex:none;display:flex}
+.tool .th .nm{font-family:var(--mono);font-size:12px;color:var(--tx);font-weight:500;flex:none}
+.tool .th .lb{color:var(--tx3);font-size:12px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;min-width:0}
+.tool .th .st{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--tx3);
+  white-space:nowrap}
+.tool .th .st.ok{background:var(--okb);border-color:var(--okl);color:var(--ok)}
+.tool .th .st.bad{background:var(--errb);border-color:var(--errl);color:var(--err)}
+.tool .th .st.run{background:var(--runb);border-color:var(--runl);color:var(--run)}
+.tool pre{margin:0;border:0;border-radius:0;background:var(--panel2);max-height:340px;
+  padding:11px 13px;border-top:1px solid var(--line);font-size:11.5px;line-height:1.62}
+.tool.fold pre{display:none}
+
+/* 派活卡：主管调的一个 delegate 工具 = 一个子代理。它里面发生的每一步都挂在下面。 */
+.tool.delegate{border-color:var(--accl)}
+.tool.delegate .th .lb{color:var(--acc)}
+.substeps{background:var(--panel2);border-top:1px solid var(--line)}
+.tool.fold .substeps{display:none}
+.sub2{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 28px;font-size:12px;
+  cursor:pointer;position:relative}
+.sub2:hover{background:var(--sunken)}
+.sub2::before{content:"";position:absolute;left:15px;top:0;bottom:0;width:1px;background:var(--line2)}
+.sub2::after{content:"";position:absolute;left:15px;top:50%;width:8px;height:1px;background:var(--line2)}
+.sub2 .nm{font-family:var(--mono);font-size:11.5px;color:var(--tx);flex:none}
+.sub2 .lb{color:var(--tx3);font-size:11.5px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub2 .st{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:10.5px;
+  padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--tx3)}
+.sub2 .st.ok{background:var(--okb);border-color:var(--okl);color:var(--ok)}
+.sub2 .st.bad{background:var(--errb);border-color:var(--errl);color:var(--err)}
+.sub2 .st.run{background:var(--runb);border-color:var(--runl);color:var(--run)}
+.subwrap>pre{margin:0;border:0;border-top:1px solid var(--line);background:var(--panel);
+  max-height:260px;padding:9px 12px;font-size:11px;display:none}
+.subwrap.open>pre{display:block}
+.subwait{padding:7px 12px 7px 28px;font-size:11.5px;color:var(--warn);
+  background:var(--warnb);position:relative}
+.subwait::before{content:"";position:absolute;left:15px;top:0;bottom:0;width:1px;background:var(--warnl)}
+
+.hints{display:flex;flex-wrap:wrap;gap:7px;padding:0 0 13px;flex:none;
+  max-width:840px;margin:0 auto;width:100%}
+.hints button{width:auto;padding:7px 13px;border-radius:99px;border:1px solid var(--line2);
+  background:var(--panel);color:var(--tx2);cursor:pointer;font-size:12.5px;transition:.14s}
+.hints button:hover{border-color:var(--acc);color:var(--acc);background:var(--accb)}
+
+.auth{border:1px solid var(--warnl);background:var(--warnb);border-radius:12px;
+  padding:13px 15px;box-shadow:var(--sh1)}
+.auth .q{color:var(--warn);font-size:13px;line-height:1.6;margin-bottom:11px}
+.auth .row{display:flex;gap:9px}
+.auth button{flex:1;padding:9px;border-radius:9px;cursor:pointer;font-size:13px;border:1px solid}
+.auth .yes{background:var(--warn);border-color:var(--warn);color:#fff}
+.auth .no{background:transparent;border-color:var(--warnl);color:var(--warn)}
+.auth .done{border-color:var(--okl);background:var(--okb);color:var(--ok)}
+
+/* 输入区：一个浮起来的圆角框，输入在上、工具条在下 —— 聊天工具的经典形状 */
+.composer{flex:none;padding:2px 0 0;max-width:840px;margin:0 auto;width:100%}
+.composer.dropping .cbox{border-color:var(--acc);background:var(--accb)}
+.cbox{border:1px solid var(--line2);border-radius:16px;background:var(--panel);
+  padding:11px 13px 9px;transition:border-color .15s,box-shadow .15s;box-shadow:var(--sh1)}
+.cbox:focus-within{border-color:var(--acc);box-shadow:0 0 0 3.5px var(--accb),var(--sh1)}
+.composer textarea{width:100%;resize:none;height:48px;max-height:200px;padding:2px 2px 9px;
+  border:0;background:transparent;outline:none;font:inherit;font-size:14.5px;line-height:1.62;color:var(--tx)}
+.composer textarea::placeholder{color:var(--tx3)}
+.cfoot{display:flex;align-items:center;gap:9px}
+.cfoot .grow{flex:1;min-width:6px}
+.cfoot .iconbtn{width:32px;height:32px}
+.attbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border-radius:9px;border:1px solid var(--line2);background:transparent;color:var(--tx2);
+  cursor:pointer;font-size:12.5px;width:auto;flex:none;transition:.14s}
+.attbtn:hover{border-color:var(--tx3);color:var(--tx);background:var(--panel2)}
+.sendbtn{width:34px;height:34px;border-radius:10px;border:0;background:var(--avbg);color:var(--avfg);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:.14s}
+.sendbtn:hover{opacity:.85}
+.sendbtn:disabled{opacity:.32;cursor:not-allowed}
+.cmeta{display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 3px;
+  font-size:11.5px;color:var(--tx3);min-height:16px}
+.att{display:flex;align-items:center;gap:10px;border:1px solid var(--line2);
+  border-radius:11px;padding:8px 11px;font-size:12.5px;background:var(--panel);
+  margin-bottom:9px;flex-wrap:wrap;box-shadow:var(--sh1)}
+.att .pb{width:96px;height:5px;background:var(--sunken);border-radius:99px;overflow:hidden}
+.att .pb i{display:block;height:100%;width:0;background:var(--acc);transition:width .15s}
+/* 附件条里的按钮不能被 .btn 的 width:100% 拉满 */
+.att button.btn{width:auto;flex:none;padding:6px 11px;font-size:12.5px}
+
+/* 细一点的滚动条 —— 默认那条又宽又丑，在这种留白多的页面上特别扎眼 */
+.msgs::-webkit-scrollbar,.clist::-webkit-scrollbar,.routes::-webkit-scrollbar,
+.logs::-webkit-scrollbar,.tool pre::-webkit-scrollbar,.md pre::-webkit-scrollbar,
+#view-flow *::-webkit-scrollbar{width:10px;height:10px}
+.msgs::-webkit-scrollbar-thumb,.clist::-webkit-scrollbar-thumb,.routes::-webkit-scrollbar-thumb,
+.logs::-webkit-scrollbar-thumb,.tool pre::-webkit-scrollbar-thumb,.md pre::-webkit-scrollbar-thumb,
+#view-flow *::-webkit-scrollbar-thumb{background:var(--line2);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box}
+.msgs::-webkit-scrollbar-thumb:hover,.clist::-webkit-scrollbar-thumb:hover,
+.tool pre::-webkit-scrollbar-thumb:hover{background:var(--tx3);background-clip:content-box}
+
+/* 流水线视图：它才是"仪表盘"，给它自己的滚动条 */
+#view-flow{flex:1;min-height:0;overflow:auto}
+
+@media (max-width:880px){
+  .wrap{grid-template-columns:minmax(0,1fr);gap:0}
+  .wrap .convs{display:none}
+}
+</style>
+</head>
+<body>
+<h2 class="sr">口播剪辑 LangGraph 编排台：实时看流水线每步状态、在付费闸门拍板、取成片。</h2>
+
+<div class="app">
+  <header class="bar">
+    <button class="iconbtn" id="sideBtn" title="收起 / 展开会话列表">☰</button>
+    <button class="iconbtn" id="backBtn" title="回到对话" style="display:none">←</button>
+    <div class="ttl" id="convTitle">对话</div>
+    <span class="sub" id="projChip" title="点这里切换项目">未绑定项目</span>
+    <span class="grow"></span>
+    <span class="pill" id="chatPill"><span class="dot"></span><span id="chatPillTxt">空闲</span></span>
+    <button class="iconbtn" id="menuBtn" title="更多">⋯</button>
+
+    <div class="menu" id="menu" hidden>
+      <button id="menuNew">新对话</button>
+      <div class="sep"></div>
+      <div class="lb">项目</div>
+      <button id="menuProject">切换项目…</button>
+      <div class="sep"></div>
+      <div class="lb">运行模式</div>
+      <button id="menuReh" data-mode="rehearsal">演练模式（不花钱）</button>
+      <button id="menuReal" data-mode="real">真实运行</button>
+      <div class="sep"></div>
+      <button id="menuFlow">打开流水线面板</button>
+      <div class="sep"></div>
+      <button id="menuClear">清空这个对话</button>
+      <button class="danger" id="menuDel">删除这个会话</button>
+    </div>
+  </header>
+
+  <!-- =============================== 对话 =============================== -->
+  <div id="view-chat" class="wrap">
+    <aside class="convs">
+      <button class="newconv" id="newConv">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        新对话
+      </button>
+      <div class="sec">会话</div>
+      <div class="clist" id="convList"></div>
+      <div class="mut" id="convHint" style="font-size:11px;line-height:1.5;padding:0 2px"></div>
+    </aside>
+
+    <section class="convo">
+      <div class="msgs" id="chatMsgs"></div>
+      <div class="hints" id="chatHints"></div>
+      <div class="composer" id="composer">
+        <div id="attachBar"></div>
+        <div class="cbox">
+          <textarea id="chatInp" placeholder="说点什么，或者直接安排一件事 —— 比如「帮我给这个视频加上字幕」"></textarea>
+          <div class="cfoot">
+            <button class="attbtn" id="attachBtn" title="上传源视频（上传后自动绑到本会话）">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <path d="M17 8l-5-5-5 5M12 3v13"/></svg>
+              视频
+            </button>
+            <span class="grow"></span>
+            <button class="sendbtn" id="chatSend" title="发送（Enter）">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="cmeta"><span id="composerHint"></span></div>
+        <input type="file" id="chatFile" hidden accept="video/*">
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== 流水线（原来的三栏仪表盘，整体搬进来） ===================== -->
+  <div id="view-flow" class="grid" style="display:none">
+    <div class="col col-l">
+      <section class="card">
+        <header><h2>运行配置</h2><span class="tag" id="cfgMode">演练</span></header>
+        <div class="body" id="cfgBody"></div>
+        <div class="body">
+          <button class="btn" id="runBtn">开始运行</button>
+          <div style="height:8px"></div>
+          <button class="btn ghost" id="stateBtn">刷新状态（只读）</button>
+        </div>
+      </section>
+      <section class="card">
+        <header><h2>启动自检</h2></header>
+        <div class="body" id="checkBody"></div>
+      </section>
+    </div>
+
+    <div class="col col-m">
+      <section class="card">
+        <header><h2>本次运行</h2><span class="tag" id="runTag">—</span></header>
+        <div class="body" id="runBody"></div>
+      </section>
+      <section class="card" style="margin-top:14px">
+        <header><h2>流水线</h2><span class="tag">按真实链序 · 左侧色条=负责角色</span></header>
+        <div class="steps" id="steps"></div>
+      </section>
+      <section class="card" style="margin-top:14px">
+        <header><h2>裁决与回退</h2><span class="tag" id="routeTag">—</span></header>
+        <div class="routes" id="routes"><div class="r"><span class="kind">—</span><span class="tx mut">还没跑过。</span></div></div>
+      </section>
+    </div>
+
+    <div class="col col-r">
+      <section class="card">
+        <header><h2>账本</h2></header>
+        <div class="body" id="ledger"></div>
+      </section>
+      <section class="card">
+        <header><h2>实时日志</h2><span class="tag" id="logTag">0 行</span></header>
+        <div class="logs" id="logs"></div>
+      </section>
+      <section class="card">
+        <header><h2>产物</h2></header>
+        <div class="body arts" id="arts"><span class="mut">跑完才有。</span></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"><div class="modal" id="modal"></div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtSize = n => n == null ? '' : (n > 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(n/1024))+' KB');
+
+const S = {
+  meta:null, projects:[], mode:'rehearsal', scenario:'happy',
+  project:null, thread:'', goal:{overlay_required:true, bgm_source:'generate', allow_paid:false, allow_expensive:false},
+  st:{}, retakes:{}, running:null, es:null, last:null, logN:0, routes:[], ledger:{},
+};
+
+function setBusy(kind, txt){ setChatPill(txt, kind); }
+
+/* ---------------------------------------------------------------- 启动 */
+async function boot(){
+  const [meta, pj] = await Promise.all([fetch('/api/meta').then(r=>r.json()),
+                                        fetch('/api/projects').then(r=>r.json())]);
+  S.meta = meta; S.projects = pj.projects || [];
+  S.project = S.project || (S.projects.find(p=>p.final_exists) || S.projects[0] || {}).name || '';
+  document.title = `口播剪辑 · ${meta.chain.length} 阶段`;
+  initUpload();          /* 现在是"对话里的视频附件"，不再是一张独立的卡 */
+  initMenu();
+  initChat();            /* 会话列表 + 对话流；它会自己决定开哪条会话 */
+  renderModeSeg(); renderCfg(); renderCheck(); renderChain(); renderLedger();
+  renderRunBody(); renderArts([]);
+  if (S.mode === 'real' && S.project) refreshState();
+}
+
+async function loadProjects(){
+  const pj = await fetch('/api/projects').then(r=>r.json());
+  S.projects = pj.projects || [];
+  if (C.active) renderProjChip();
+}
+
+/* --------------------------------------------- 传入源视频（对话里的附件） */
+/* 上传不再是"左侧一张卡"，而是**对话里的一个动作**：
+   传完自动建项目、自动绑到当前会话，并在对话里留一条说明 ——
+   因为用户的心智是"我把视频给你了"，不是"我改了一个配置项"。 */
+let pendFile = null;
+
+function initUpload(){
+  const inp = $('#chatFile');
+  $('#attachBtn').onclick = () => inp.click();
+  inp.onchange = () => { if (inp.files && inp.files[0]) pickFile(inp.files[0]); inp.value = ''; };
+
+  /* 拖到**整个输入区**都算 —— 只认"拖到那个小按钮上"太难用了 */
+  const zone = $('#composer');
+  ['dragenter','dragover'].forEach(t => zone.addEventListener(t, e => {
+    e.preventDefault(); zone.classList.add('dropping'); }));
+  ['dragleave','drop'].forEach(t => zone.addEventListener(t, e => {
+    e.preventDefault(); zone.classList.remove('dropping'); }));
+  zone.addEventListener('drop', e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) pickFile(f);
+  });
+}
+
+function renderAttach(html){
+  $('#attachBar').innerHTML = html ? `<div class="att">${html}</div>` : '';
+}
+
+/* 项目名：只做净化，**不自动提交** —— 名字要用户看得见、改得了（就在输入框里改） */
+function suggestName(fn){
+  return String(fn).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 48) || '未命名';
+}
+
+function pickFile(f){
+  const isVideo = (f.type && f.type.startsWith('video/'))
+    || /\.(mp4|mov|mkv|webm|m4v|avi)$/i.test(f.name);
+  if (!isVideo){
+    renderAttach(`<span style="color:var(--err)">这不是视频文件：${esc(f.name)}</span>
+                  <button class="btn ghost sm" id="attCancel">知道了</button>`);
+    $('#attCancel').onclick = () => renderAttach('');
+    return;
+  }
+  pendFile = f;
+  const nm = suggestName(f.name);
+  const d = (S.meta && S.meta.disk) || {};
+  const warn = (d.free && f.size + 2 * 1024 * 1024 * 1024 > d.free)
+    ? ` <span style="color:var(--err)">磁盘可能不够（只剩 ${esc(d.free_human)}）</span>` : '';
+  renderAttach(`<span>${esc(f.name)}</span><span class="mut">${fmtSize(f.size)}${warn}</span>
+    <span class="pb"><i id="attBar"></i></span>
+    <button class="btn sm" id="attGo">上传并建项目「${esc(nm)}」</button>
+    <button class="btn ghost sm" id="attCancel">取消</button>`);
+  $('#attGo').onclick = doUpload;
+  $('#attCancel').onclick = () => { pendFile = null; renderAttach(''); };
+}
+
+function doUpload(){
+  if (!pendFile) return;
+  const fd = new FormData();
+  fd.append('file', pendFile);
+  fd.append('name', suggestName(pendFile.name));
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload');
+  $('#attGo').disabled = true;
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable && $('#attBar'))
+      $('#attBar').style.width = (e.loaded / e.total * 100).toFixed(1) + '%';
+  };
+  const fail = msg => renderAttach(`<span style="color:var(--err)">${esc(msg)}</span>
+    <button class="btn ghost sm" id="attCancel">知道了</button>`),
+        wireCancel = () => { const b = $('#attCancel'); if (b) b.onclick = () => renderAttach(''); };
+  xhr.onload = async () => {
+    if (xhr.status !== 200){
+      let m = xhr.responseText;
+      try { m = JSON.parse(m).detail || m; } catch(e){}
+      fail(m); wireCancel(); return;
+    }
+    const j = JSON.parse(xhr.responseText);
+    const sp = j.spec || {};
+    pendFile = null; renderAttach('');
+    await loadProjects();
+    S.project = j.project; S.thread = '';
+    C.project = j.project;
+    /* 绑到当前会话 —— 主管从此知道"说的是这个项目"（并且这句话会留在记录里） */
+    try {
+      await fetch(`/api/conversations/${C.active}/bind`, {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({project: j.project,
+          note: `已上传源视频并建项目「${j.project}」（${sp.width||'?'}×${sp.height||'?'} · ${sp.duration||'?'}s）。`})});
+    } catch(e){ /* 绑定失败不影响文件已就位，下一次说话它自己会 list_projects 找到 */ }
+    renderProjChip(); renderComposerHint();
+    noteMsg(`已上传源视频 → 新项目「${j.project}」（${sp.width||'?'}×${sp.height||'?'} · `
+          + `${sp.duration||'?'}s · ${esc(sp.video_codec||'')}/${esc(sp.audio_codec||'')}）。`
+          + `现在可以直接安排任务了，比如「帮我加上字幕」。`);
+    renderModeSeg(); renderCfg(); renderRunBody();
+    addLog(null, `上传完成：${j.project}`, 'dim');
+    $('#chatInp').focus();
+  };
+  xhr.onerror = () => { fail('上传失败（网络中断或服务退出）'); wireCancel(); };
+  xhr.send(fd);
+}
+
+/* 运行模式不再占顶栏一格（那太"仪表盘"了），收进「更多」菜单。
+   这里只同步菜单上的勾 —— 函数名保留，免得改一堆调用点。 */
+function renderModeSeg(){
+  const a = $('#menuReh'), b = $('#menuReal');
+  if (a) a.classList.toggle('on', S.mode === 'rehearsal');
+  if (b) b.classList.toggle('on', S.mode === 'real');
+}
+
+function renderCfg(){
+  const real = S.mode === 'real';
+  $('#cfgMode').textContent = real ? '真实运行' : '演练模式';
+  $('#runBtn').textContent = real ? '真实运行' : '运行演练';
+  /* 上传已经搬到对话里了（拖进输入区就行），流水线面板不再挂那张卡。
+     磁盘信息在「启动自检」和对话输入框下面各显示了，这里不再重复。 */
+  let h = '';
+  if (!real){
+    h += `<div class="infobox" style="margin-bottom:11px">桩内核 + 桩判断节点，跑的是<b>同一张图</b>：
+          路由、护栏、账本都是真实现。⛔ 不产生真实产物、不花钱。</div>`;
+    h += (S.meta.scenarios||[]).map(s => `
+      <div class="scen ${S.scenario===s.key?'on':''}" data-s="${s.key}">
+        <div class="h"><span>${esc(s.title)}</span><span class="k">${esc(s.key)}</span></div>
+        <div class="b">${esc(s.blurb)}</div>
+      </div>`).join('');
+  } else {
+    h += `<div class="field"><label class="f">项目</label>
+      <select id="pjSel">${S.projects.map(p =>
+        `<option value="${esc(p.name)}" ${p.name===S.project?'selected':''}>${esc(p.name)} · ${esc(p.next_stage||'?')}${p.final_exists?' · 已成片':''}</option>`).join('')}</select></div>`;
+    h += `<div class="field"><label class="f">thread（断点续跑用；默认取项目名）</label>
+      <input type="text" id="thrInp" placeholder="${esc(S.project||'')}" value="${esc(S.thread)}"></div>`;
+    h += `<div class="row2">
+      <div class="field"><label class="f">BGM 来源</label><select id="bgmSel">
+        <option value="generate" ${S.goal.bgm_source==='generate'?'selected':''}>自己生成（付费）</option>
+        <option value="user" ${S.goal.bgm_source==='user'?'selected':''}>用 bgm/ 里我给的曲目</option>
+      </select></div>
+      <div class="field"><label class="f">动效层</label><select id="ovSel">
+        <option value="1" ${S.goal.overlay_required?'selected':''}>要（契约默认）</option>
+        <option value="0" ${!S.goal.overlay_required?'selected':''}>不要（无动效版）</option>
+      </select></div></div>`;
+    h += `<label class="chk"><input type="checkbox" id="chkPaid" ${S.goal.allow_paid?'checked':''}>
+      <span><span class="t">预先授权付费</span>
+      <span class="d">勾上就<b>不再停下来问你</b>（BGM 约 0.49 元/次）。不勾 = 付费前必然中断等你拍板。</span></span></label>`;
+    h += `<label class="chk"><input type="checkbox" id="chkExp" ${S.goal.allow_expensive?'checked':''}>
+      <span><span class="t">预先授权「更贵的动作」</span>
+      <span class="d">重转写 / 重渲全片这类。默认关。</span></span></label>`;
+    h += `<div class="warnbox" style="margin-top:9px">真实运行会调 GPU 转写与 ffmpeg 编码，可能几十分钟。
+      关掉页面不会中断它（后台线程仍在跑），但你也看不到进度了。</div>`;
+  }
+  $('#cfgBody').innerHTML = h;
+
+  if (!real){
+    $('#cfgBody').querySelectorAll('.scen').forEach(el => el.onclick = () => {
+      S.scenario = el.dataset.s; renderCfg();
+    });
+  } else {
+    const sel = $('#pjSel'); if (sel) sel.onchange = e => { S.project = e.target.value; S.thread=''; renderCfg(); refreshState(); };
+    const th = $('#thrInp'); if (th) th.oninput = e => S.thread = e.target.value;
+    const b = $('#bgmSel'); if (b) b.onchange = e => S.goal.bgm_source = e.target.value;
+    const o = $('#ovSel'); if (o) o.onchange = e => S.goal.overlay_required = e.target.value === '1';
+    const p = $('#chkPaid'); if (p) p.onchange = e => S.goal.allow_paid = e.target.checked;
+    const x = $('#chkExp'); if (x) x.onchange = e => S.goal.allow_expensive = e.target.checked;
+  }
+}
+
+function renderCheck(){
+  const m = S.meta, probs = (m.problems || []).slice();
+  const d = m.disk || {};
+  let h = `<div class="kv"><span class="k">模型网关</span><span class="v">${esc(m.model.text_model)}</span></div>
+    <div class="kv"><span class="k">密钥</span><span class="v">${m.key_present ? esc(m.key_source) : '未找到'}</span></div>
+    <div class="kv"><span class="k">项目所在盘</span><span class="v" style="color:${d.enough_for_upload?'':'var(--err)'}">剩余 ${esc(d.free_human||'?')}（一次完整跑约需 1 GB）</span></div>
+    <div class="kv"><span class="k">回退预算</span><span class="v">单阶段 ${m.budgets.retake_budget} 次 · 跨 agent ${m.budgets.cross_agent_loop_budget} 次 · 同因连续 ${m.budgets.same_cause_limit} 次即停</span></div>
+    <div class="kv"><span class="k">BGM 单价上限</span><span class="v">${m.budgets.bgm_max_price} 元/次</span></div>`;
+  if (!d.enough_for_upload && d.free_human)
+    probs.push(`项目所在盘只剩 ${d.free_human} —— 传源视频会先被磁盘闸门拦下。`);
+  if (probs.length) h += `<div class="errbox" style="margin-top:11px"><b>自检不通过</b><br>${probs.map(esc).join('<br>')}</div>`;
+  else h += `<div class="infobox" style="margin-top:11px">自检通过：内核解释器、内核入口、项目根目录都在。</div>`;
+  $('#checkBody').innerHTML = h;
+}
+
+function renderChain(){
+  const rows = S.meta.chain;
+  $('#steps').innerHTML = rows.map((n,i) => `
+    <div class="step" data-id="${esc(n.id)}" data-owner="${esc(n.owner)}" data-kind="${esc(n.kind)}" data-st="idle">
+      <span class="n">${n.kind==='step'?String(i).padStart(2,'0'):'▸'}</span>
+      <span><span class="nm">${esc(n.label)}</span><span class="sub">${esc(n.doing)}</span></span>
+      <span class="st"><span class="own">${esc(n.owner)}</span><span class="badge">未执行</span></span>
+    </div>`).join('');
+  resetNodes();
+}
+function resetNodes(){ for (const k in S.st) delete S.st[k]; S.retakes={}; S.ledger={};
+  document.querySelectorAll('.step').forEach(el => setNode(el.dataset.id, 'idle')); }
+
+function setNode(id, st, extra){
+  const el = document.querySelector(`.step[data-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  S.st[id] = st;
+  el.dataset.st = st;
+  const b = el.querySelector('.badge');
+  const n = S.retakes[id] || 0;
+  let txt = {idle:'未执行', run:'运行中', ok:'通过', skip:'跳过·复用', fail:'失败', gate:'等拍板', done:'已完成'}[st] || st;
+  if (st === 'run') txt = '<span class="spin"></span> 运行中';
+  if (st === 'ok' && n) txt = `通过 ↺${n}`;
+  b.innerHTML = txt;
+  if (extra) b.title = extra;
+}
+
+/* ---------------------------------------------------------------- 运行 */
+/* extra 带 approve 时表示"恢复"，请求体原样使用 —— 不再从表单拼。
+   理由：恢复是在**原来那个 thread** 上继续，表单里的项目/剧本可能已经被改过，
+   照表单拼会静默作用到另一个项目上。 */
+async function startRun(extra){
+  const resuming = !!(extra && extra.approve !== undefined && extra.approve !== null);
+  let body;
+  if (resuming){
+    body = Object.assign({}, extra);
+    if (!body.mode) body.mode = S.running ? S.running.mode : S.mode;
+    if (!body.scenario) body.scenario = S.scenario;
+  } else {
+    body = { mode: S.mode };
+    if (S.mode === 'rehearsal'){ body.scenario = S.scenario; }
+    else {
+      body.project = S.project; body.thread = S.thread || undefined;
+      body.overlay_required = S.goal.overlay_required;
+      body.bgm_source = S.goal.bgm_source;
+      body.allow_paid = S.goal.allow_paid;
+      body.allow_expensive = S.goal.allow_expensive;
+    }
+    S.routes = []; renderRoutes(); resetNodes(); clearLogs();
+  }
+  $('#runBtn').disabled = true;
+  try {
+    const r = await fetch('/api/run', {method:'POST', headers:{'Content-Type':'application/json'},
+                                       body: JSON.stringify(body)});
+    const j = await r.json();
+    if (!r.ok) { $('#runBtn').disabled = false; popupError(j.detail || '启动失败'); return; }
+    S.running = j;
+    $('#runTag').textContent = `${j.mode === 'rehearsal' ? '演练·'+j.scenario : '真实'} · thread=${j.thread_id}`;
+    setBusy('run', j.input === 'resume' ? '恢复中' : '运行中');
+    renderRunBody();
+    stream(j.run_id);
+  } catch(e){ $('#runBtn').disabled = false; popupError(String(e)); }
+}
+
+function stream(runId){
+  if (S.es) S.es.close();
+  const es = new EventSource('/api/stream/' + runId);
+  S.es = es;
+  es.onmessage = ev => { try { handle(JSON.parse(ev.data)); } catch(e){ console.warn(e, ev.data); } };
+  es.addEventListener('done', () => { es.close(); S.es = null; });
+  es.onerror = () => { /* 浏览器自带重连；服务端 keepalive 会维持连接 */ };
+}
+
+function handle(ev){
+  if (ev.type === 'log'){ addLog(ev.t, ev.text, ev.level); return; }
+  if (ev.type === 'node_start'){
+    setNode(ev.node, 'run');
+    if (ev.kind === 'gate') setBusy('gate', ev.label);
+    else setBusy('run', ev.label + '…');
+    renderRunBody(ev);
+    return;
+  }
+  if (ev.type === 'node_end'){
+    let st;
+    if (ev.node === 'deliver') st = 'done';
+    else if (ev.node === 'halt') st = 'fail';
+    else if (ev.node === 'request_approval' && ev.ok == null) st = 'gate';
+    else if (ev.ok === true) st = ev.skipped ? 'skip' : 'ok';
+    else if (ev.ok === false) st = 'fail';
+    else st = ev.node === 'override' ? 'skip' : 'ok';
+    if (ev.route && ev.route.ok === false){ S.routes.push(ev.route); renderRoutes(); }
+    if (ev.route && ev.route.consume_retake && ev.route.goto) {
+      S.retakes[ev.route.goto] = (S.retakes[ev.route.goto] || 0) + 1;
+    }
+    if (!ev.ok && ev.causes && ev.causes.length){
+      S.ledger.causes = (S.ledger.causes || []).concat(ev.causes); renderLedger();
+    }
+    setNode(ev.node, st, ev.node === 'override' && ev.ok == null ? '本次无需例外放行（透明通过）' : '');
+    addLog(ev.duration_s, `${ev.label}：${ev.ok===false?'失败':(ev.node==='override'&&ev.ok==null?'透明通过':'完成')}${ev.skipped?'（'+ev.skipped+'）':''}`, ev.ok===false?'warn':'dim');
+    renderRunBody(ev);
+    return;
+  }
+  if (ev.type === 'interrupt'){
+    renderLedgerFrom(ev.payload);
+    setNode('request_approval', 'gate');
+    openApproval(ev.payload);
+    return;
+  }
+  if (ev.type === 'finished'){ onFinished(ev); return; }
+  if (ev.type === 'error'){ addLog(null, '运行出错：' + ev.message, 'error');
+    if (ev.traceback) addLog(null, ev.traceback, 'error'); }
+}
+
+function onFinished(ev){
+  $('#runBtn').disabled = false;
+  setBusy(ev.waiting ? 'gate' : (ev.halted ? 'err' : 'ok'),
+          ev.waiting ? '等你拍板' : (ev.halted ? '已停下' : '已完成'));
+  S.ledger.causes = ev.brief.cause_history || []; S.ledger.retakes = ev.brief.retakes || {};
+  S.ledger.approvals = ev.brief.approvals || {}; S.ledger.notes = ev.brief.notes || [];
+  S.ledger.cross = ev.brief.cross_agent_events || [];
+  renderLedger(); renderRoutesFrom(ev.brief.route_history || []); renderArts(ev.artifacts || []);
+  applyBrief(ev.brief);
+  if (ev.waiting){ const it = (ev.brief && ev.brief.pending_approval) || {};
+    openApproval({ type:'approval_request', question: it.reason, price: it.price,
+                   approval_key: it.approval_key, from_node: it.from_node, cause: it.cause }); }
+  else if (ev.halted){ popupHalt(ev.brief); }
+  else { popupDeliver(ev.brief, ev.artifacts || []); }
+}
+
+function applyBrief(b){
+  if (!b) return;
+  const res = b.results || {};
+  for (const id in res){
+    const r = res[id];
+    setNode(id, r.ok ? (r.skipped ? 'skip' : 'ok') : 'fail');
+  }
+  if (b.retakes) for (const k in b.retakes) S.retakes[k] = b.retakes[k];
+  for (const id in S.retakes) setNode(id, S.st[id] || 'ok');
+  renderRunBody(null, b);
+}
+
+function renderRunBody(ev, brief){
+  const b = brief || null;
+  const r = S.running || {};
+  let h = '';
+  if (!S.running){ h = `<span class="mut">还没发起运行。左侧选好模式点「${S.mode==='real'?'真实运行':'运行演练'}」。</span>`; $('#runBody').innerHTML = h; return; }
+  h += `<div class="kv"><span class="k">模式</span><span class="v">${r.mode==='rehearsal'?'演练 · '+esc(r.scenario):'真实运行'}</span></div>`;
+  h += `<div class="kv"><span class="k">项目</span><span class="v">${esc(r.project)}</span></div>`;
+  h += `<div class="kv"><span class="k">thread</span><span class="v">${esc(r.thread_id)}</span></div>`;
+  if (b){
+    h += `<div class="kv"><span class="k">接续点</span><span class="v">${esc(b.resume_from || '—')}</span></div>`;
+    const ks = b.kernel_status || {};
+    if (ks.next_stage) h += `<div class="kv"><span class="k">内核断点</span><span class="v">${esc(ks.next_stage)}${ks.last_qc_ok===false?' · 上次质检未过':''}</span></div>`;
+    const done = Object.keys(b.results || {}).length;
+    h += `<div class="kv"><span class="k">走过阶段</span><span class="v">${done} 个</span></div>`;
+  }
+  $('#runBody').innerHTML = h;
+}
+
+/* 只读刷新：不推进任何东西，也不会碰到运行锁 */
+async function refreshState(){
+  if (S.mode !== 'real' || !S.project) {
+    addLog(null, S.mode === 'real' ? '先选一个项目。' : '演练每次都是新 thread，没有历史断点可查。', 'dim');
+    return;
+  }
+  try {
+    const st = await fetch(`/api/state?project=${encodeURIComponent(S.project)}`).then(r=>r.json());
+    if (st.has_checkpoint){
+      applyBrief(st.brief);
+      addLog(null, `已读取 thread=${st.thread_id} 的检查点（${(st.next||[]).length? '下次跑 '+st.next.join(','):'已跑完'}）`, 'dim');
+    } else if (st.kernel){
+      S.ledger.kernel = st.kernel; renderLedger();
+      addLog(null, `这个项目还没有图断点。内核实况：next_stage=${st.kernel.next_stage ?? '—'}` +
+                   `${st.kernel.last_qc_ok === false ? '（上次质检未过）' : ''}`, 'dim');
+      if (st.kernel.resume_node) markUpTo(st.kernel.resume_node);
+    }
+    if (st.interrupts && st.interrupts.length){ setBusy('gate', '有挂起事项'); openApproval(st.interrupts[0]); }
+  } catch(e){ addLog(null, '只读刷新失败：' + e, 'warn'); }
+}
+
+/* 没有图断点时，"该步产物已存在 ⇒ 这一步不用重跑"是内核给的结论，但要**标注**成推断，
+   不能显示成"通过" —— 那是两件事（产物在 ≠ 这一步在这次运行里跑过并自检通过）。 */
+function markUpTo(stopNode){
+  const idx = S.meta.chain.findIndex(n => n.id === stopNode);
+  S.meta.chain.forEach((n, i) => {
+    if (n.kind !== 'step' || S.st[n.id]) return;
+    if (i < idx) setNode(n.id, 'skip', '推断：该步产物已存在，本次不会重跑');
+    else if (i === idx) setNode(n.id, 'gate', '内核说要从这一步接续');
+  });
+}
+
+/* ---------------------------------------------------------------- 弹窗 */
+function openModal(html){ $('#modal').innerHTML = html; $('#modalHost').classList.add('on'); }
+function closeModal(){ $('#modalHost').classList.remove('on'); $('#modal').innerHTML=''; }
+$('#modalHost').onclick = e => { if (e.target.id === 'modalHost') closeModal(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function openApproval(p){
+  const price = p.price != null ? `<div style="margin-bottom:13px"><span class="mut">单价</span>
+      <div class="price">¥ ${p.price} <span class="mut" style="font-size:12px">/ 次</span></div></div>` : '';
+  openModal(`
+    <header><h1>需要你拍板</h1><span class="mut" style="margin-left:auto">流程已暂停，状态已保存</span></header>
+    <div class="mbody">
+      <div class="q">${esc(p.question || '（未给出事由）')}</div>
+      ${price}
+      <div class="kv"><span class="k">提出者</span><span class="v">${esc(p.from_node||'—')}</span></div>
+      <div class="kv"><span class="k">授权键</span><span class="v">${esc(p.approval_key||'—')}</span></div>
+      <div class="kv"><span class="k">cause</span><span class="v">${esc(p.cause||'—')}</span></div>
+      <div class="hr"></div>
+      <div class="mut">批准 = 在<b>同一个 thread</b> 上恢复执行（与命令行 <code>--approve</code> 同一条路）。
+        拒绝 = 就此停下并如实报告。<br>
+        ⛔ 不回答就等于不做 —— 这是有意设计：花钱与重跑长任务不该被自动批准。</div>
+    </div>
+    <div class="mfoot">
+      <button class="btn ok" id="mA">批准并继续</button>
+      <button class="btn danger" id="mR">拒绝并停下</button>
+    </div>`);
+  $('#mA').onclick = () => { closeModal(); approve(true); };
+  $('#mR').onclick = () => { closeModal(); approve(false); };
+}
+
+function approve(v){
+  if (!S.running){ popupError('没有可恢复的运行参数，请重新发起。'); return; }
+  // ⚠️ 必须带上**原来那个 thread**：恢复是在同一个 thread 上继续，
+  //    演练的项目目录名里带 nonce，光凭 scenario 是找不回来的。
+  S.last = { mode:S.running.mode, thread:S.running.thread_id, approve:v };
+  if (S.running.mode === 'real'){ S.last.project = S.running.project; }
+  startRun(S.last);
+}
+
+function popupDeliver(b, arts){
+  const f = b.final || {};
+  const spec = f.spec || {};
+  const isRehearsal = (S.running||{}).mode === 'rehearsal';
+  const vids = arts.filter(a => a.kind === 'video');
+  let h = `<header><h1>${f.final_exists ? '交付完成' : '运行结束'}</h1>
+      <span class="mut" style="margin-left:auto">${esc(S.running ? S.running.thread_id : '')}</span></header><div class="mbody">`;
+  if (isRehearsal && !f.final_exists){
+    h += `<div class="infobox" style="margin-bottom:13px">这是<b>演练</b>：图上每一步都真跑了，
+      但没有真实产物 —— 桩没有造文件，所以交付报告里如实写着
+      <code>final_exists: false</code>（这本身就是"不谎报"的一个例子）。</div>`;
+  }
+  if (vids.length){
+    h += `<video controls preload="metadata" src="/api/artifact?rel=${encodeURIComponent(vids[0].rel)}"></video>`;
+  }
+  if (f.final_exists){
+    h += `<div class="kv"><span class="k">成片</span><span class="v">${esc(f.final_video)}</span></div>`;
+    h += `<div class="kv"><span class="k">规格</span><span class="v">${spec.width}×${spec.height} · ${spec.duration}s · ${spec.fps}fps · ${esc(spec.video_codec)}/${esc(spec.audio_codec)}</span></div>`;
+  }
+  h += `<div class="kv"><span class="k">动效层</span><span class="v">${f.overlay_included ? '已包含（'+((f.overlay_files||[]).length)+' 个 MOV）' : '未包含'}</span></div>`;
+  if ((f.disclaimer||[]).length) h += `<div class="warnbox" style="margin-top:11px">${f.disclaimer.map(esc).join('<br>')}</div>`;
+  if ((f.known_gaps||[]).length){
+    h += `<div class="warnbox" style="margin-top:9px"><b>本次运行未执行的阶段</b><br>${f.known_gaps.map(esc).join('<br>')}
+      <div class="mut" style="margin-top:7px">账本只记<b>本次运行</b>跑过的阶段。断点续跑会从中间接续，
+      所以"未执行 X"指的是这次没跑，不等于项目里没有 —— 项目实况看上面「刷新状态」。</div></div>`;
+  }
+  if ((f.fallbacks||[]).length){
+    h += `<div class="hr"></div><h2>回退与处理记录</h2><pre>${esc(f.fallbacks.join('\n'))}</pre>`;
+  }
+  if ((f.notes||[]).length){
+    h += `<div class="hr"></div><h2>处置说明</h2><pre>${esc(f.notes.join('\n'))}</pre>`;
+  }
+  h += `</div><div class="mfoot"><button class="btn ghost" id="mC">关闭</button></div>`;
+  openModal(h);
+  $('#mC').onclick = closeModal;
+}
+
+function popupHalt(b){
+  const hh = (b.halts || []).map(x =>
+    `<div class="kv"><span class="k">${esc(x.node)}</span><span class="v">${esc(x.reason)}</span></div>`).join('');
+  openModal(`<header><h1>已停下（需人工介入）</h1></header><div class="mbody">
+    <div class="errbox">${hh || '未给出原因'}</div>
+    <div class="hr"></div>
+    <div class="mut">停下是<b>如实报告</b>，不是失败。已完成的阶段会被跳过，
+      处理完后用同一个 thread 再跑一次即从断点接续。</div>
+    ${(b.notes||[]).length ? `<div class="hr"></div><h2>处置说明</h2><pre>${esc(b.notes.join('\n'))}</pre>` : ''}
+  </div><div class="mfoot"><button class="btn ghost" id="mC">关闭</button></div>`);
+  $('#mC').onclick = closeModal;
+}
+
+function popupError(msg){
+  openModal(`<header><h1>没能启动</h1></header><div class="mbody"><div class="errbox">${esc(msg)}</div></div>
+    <div class="mfoot"><button class="btn ghost" id="mC">关闭</button></div>`);
+  $('#mC').onclick = closeModal;
+}
+
+/* ---------------------------------------------------------------- 面板 */
+function clearLogs(){ $('#logs').innerHTML=''; S.logN=0; $('#logTag').textContent='0 行'; }
+function addLog(t, text, level){
+  const lv = level || 'info';
+  if (lv === 'dim' || lv === 'note') { /* 保留，便于追因 */ }
+  const el = document.createElement('div');
+  el.className = 'l ' + lv;
+  el.innerHTML = `<span class="t">${t==null?'':Number(t).toFixed(1)+'s'}</span><span class="m">${esc(text)}</span>`;
+  const box = $('#logs'); box.appendChild(el);
+  if (++S.logN % 3 === 0 || S.logN < 4) $('#logTag').textContent = S.logN + ' 行';
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderRoutesFrom(rs){
+  S.routes = rs.filter(r => r.ok === false);
+  renderRoutes();
+}
+function renderRoutes(){
+  if (!S.routes.length){
+    $('#routeTag').textContent = '没有回退';
+    $('#routes').innerHTML = `<div class="r"><span class="kind ok" style="background:var(--okb);color:var(--ok)">通过</span>
+      <span class="tx mut">每一步都按正常后继推进，没有触发回退矩阵。</span></div>`;
+    return;
+  }
+  $('#routeTag').textContent = S.routes.length + ' 次';
+  $('#routes').innerHTML = S.routes.map(r => `
+    <div class="r bad"><span class="kind">${esc(r.kind)}/${esc(r.cost)}</span>
+    <span class="tx"><b>${esc(r.node)}</b> → <b>${esc(r.goto)}</b>
+      ${(r.causes||[]).length?`<br><span class="cause">${esc(r.causes.join(', '))}</span>`:''}
+      <br>${esc(r.reason||'')}</span></div>`).join('');
+}
+
+function renderLedger(){
+  const L = S.ledger;
+  let h = '';
+  const causes = L.causes || [];
+  h += `<div style="margin-bottom:11px"><label class="f">cause 流水</label><div class="chips">${
+    causes.length ? causes.map(c=>`<span class="chip">${esc(c)}</span>`).join('') : '<span class="mut">无</span>'}</div></div>`;
+  const rt = L.retakes || {};
+  h += `<div style="margin-bottom:11px"><label class="f">回退次数</label><div class="chips">${
+    Object.keys(rt).length ? Object.entries(rt).map(([k,v])=>`<span class="chip neutral">${esc(k)} ↺${v}</span>`).join('') : '<span class="mut">无</span>'}</div></div>`;
+  const ap = L.approvals || {};
+  h += `<div style="margin-bottom:11px"><label class="f">人工批准</label><div class="chips">${
+    Object.keys(ap).length ? Object.entries(ap).map(([k,v])=>`<span class="chip ${v?'ok':''}">${esc(k)}</span>`).join('') : '<span class="mut">无</span>'}</div></div>`;
+  const cr = L.cross || [];
+  if (cr.length) h += `<div style="margin-bottom:11px"><label class="f">跨 agent 回路</label><div class="chips">${
+    cr.map(e=>`<span class="chip">${esc(e.node)} → ${esc(e.goto)}</span>`).join('')}</div></div>`;
+  if (L.kernel){
+    const k = L.kernel;
+    if (k.next_stage) h += `<div class="kv"><span class="k">内核断点</span><span class="v">${esc(k.next_stage)}${k.last_qc_ok===false?' · 上次质检未过':''}</span></div>`;
+    if (k.resume_node) h += `<div class="kv"><span class="k">将接续于</span><span class="v">${esc(k.resume_node)}</span></div>`;
+  }
+  if ((L.notes||[]).length){
+    h += `<div style="margin-top:11px"><label class="f">处置说明</label><pre style="max-height:150px">${esc(L.notes.slice(-14).join('\n'))}</pre></div>`;
+  }
+  $('#ledger').innerHTML = h;
+}
+function renderLedgerFrom(p){ /* interrupt 的现场 */ if (p && p.cause){ S.ledger.causes = (S.ledger.causes||[]).concat([p.cause]); renderLedger(); } }
+
+function renderArts(arts){
+  if (!arts.length){ $('#arts').innerHTML = `<span class="mut">这次没有产出可看的文件。</span>`; return; }
+  const icon = k => k === 'video' ? '▶' : (k === 'json' ? '{}' : '≡');
+  $('#arts').innerHTML = arts.map(a => `
+    <div class="a"><span class="mut">${icon(a.kind)}</span>
+      <span class="nm" title="${esc(a.rel)}">${esc(a.label)}</span>
+      <span class="sz">${fmtSize(a.size)}</span>
+      <a class="go" href="/api/artifact?rel=${encodeURIComponent(a.rel)}" target="_blank" rel="noopener">打开</a>
+    </div>`).join('');
+}
+
+/* ========================================================================
+   对话 —— 会话是一等公民
+   ------------------------------------------------------------------------
+   三个"以前没有、现在必须有"的东西：
+     · 会话可以有很多个、存在服务端（刷新页面、重启服务都还在）；
+     · **不绑定项目也能开口说话**（不再有"先选下拉框"这道门槛）；
+     · 主管的回复按 markdown 渲染、逐字流出来、工具调用是看得见的卡。
+   ======================================================================== */
+const C = { list:[], active:'', title:'', project:'', streaming:false, es:null,
+            paidOk:false, live:null, pending:null,
+            subs:{}   /* 子代理 id → 它那张"派活卡"里的步骤容器 */ };
+
+const CHAT_HINTS = [
+  ['你能做什么？', '先聊聊，不动手'],
+  ['看看有哪些项目', '它会自己列出来'],
+  ['帮我给这个视频加上字幕', '转写 → 建时间轴 → 生成并烧录字幕'],
+  ['把里面的废话剪掉', '判断删留 → 执行剪切'],
+  ['给它加上动效', '设计动效 → 渲染 → 叠加成片'],
+  ['完整出一版，走标准流程', '整条链跑一遍'],
+];
+
+/* 工具名是英文的（`list_segments`），直接摆给用户看等于没解释。
+   补一句人话，过程卡才看得懂 —— 但也只用一句，不抢正文。 */
+const TOOL_LABEL = {
+  list_projects:'列出所有项目', use_project:'绑定项目', inspect_project:'查看项目状态',
+  read_artifact:'读取产物',
+  transcribe:'语音转写', decide_cuts:'判断该删哪些段', list_segments:'查看句子表',
+  set_cut_plan:'设定要删的句子', apply_cut:'执行剪切', establish_timeline:'建立时间轴（不删内容）',
+  make_subtitles:'生成字幕', set_subtitle_text:'改某句字幕文字', fix_subtitle_text:'纠正字幕文本',
+  burn_subtitles:'烧录字幕', review_test_burn:'审看测试片',
+  design_overlay:'设计动效工程', render_overlay:'渲染动效层',
+  prepare_final_specs:'确定成片规格', generate_bgm:'生成背景音乐', mix_audio:'混音',
+  apply_overlay:'叠加动效到成片', run_qc:'成片质检', run_standard_pipeline:'标准全流程',
+  /* 这 4 个是"派活" —— 调它们等于派一个子代理出去干活 */
+  delegate_transcript_editor:'派给「剪裁策划」',
+  delegate_subtitle_maker:'派给「字幕制作」',
+  delegate_overlay_designer:'派给「特效设计」',
+  delegate_qc_inspector:'派给「成片质检」',
+};
+const ICO = {
+  tool:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>',
+  spark:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 2.6l1.9 5.3 5.3 1.9-5.3 1.9-1.9 5.3-1.9-5.3L4.3 9.8l5.3-1.9z"/><path d="M18.6 15.3l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".5"/></svg>',
+};
+const AV = () => `<span class="av">${ICO.spark}</span>`;
+
+/* ---------------------------------------------------------------- 顶栏菜单 */
+/* 顶栏刻意只放"标题 + 更多"两样东西。会话管理、项目、运行模式、流水线面板
+   全部收进这个菜单 —— 它们都不是"每次说话都要看见"的东西。 */
+let VIEW = 'chat';
+
+function initMenu(){
+  const menu = $('#menu');
+  $('#menuBtn').onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; renderMenu(); };
+  menu.onclick = e => e.stopPropagation();
+  document.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+  $('#menuNew').onclick = () => { closeMenu(); createConversation(); };
+  $('#menuProject').onclick = () => { closeMenu(); bindViaChip(); };
+  $('#menuFlow').onclick = () => switchView(VIEW === 'flow' ? 'chat' : 'flow');
+  $('#menuClear').onclick = () => { closeMenu(); clearConversation(); };
+  $('#menuDel').onclick = () => { closeMenu(); deleteConversation(); };
+  $('#menuReh').onclick = () => { closeMenu(); setMode('rehearsal'); };
+  $('#menuReal').onclick = () => { closeMenu(); setMode('real'); };
+  $('#sideBtn').onclick = () => $('#view-chat').classList.toggle('side-off');
+  $('#backBtn').onclick = () => switchView('chat');
+}
+
+function closeMenu(){ const m = $('#menu'); if (m) m.hidden = true; }
+
+function renderMenu(){
+  renderModeSeg();
+  $('#menuProject').textContent = C.project ? `当前项目：${C.project}` : '绑定一个项目…';
+  $('#menuFlow').textContent = VIEW === 'flow' ? '回到对话' : '打开流水线面板';
+}
+
+function setMode(m){
+  S.mode = m;
+  renderModeSeg(); renderCfg(); renderCheck(); renderRunBody();
+}
+
+function switchView(name){
+  VIEW = name;
+  const flow = name === 'flow';
+  $('#view-chat').style.display = flow ? 'none' : '';
+  $('#view-flow').style.display = flow ? '' : 'none';
+  $('#backBtn').style.display = flow ? '' : 'none';
+  $('#sideBtn').style.display = flow ? 'none' : '';
+  document.body.classList.toggle('flowmode', flow);
+  closeMenu();
+  renderMenu();
+  if (!flow) $('#chatInp').focus();
+}
+
+function initChat(){
+  $('#chatHints').innerHTML = CHAT_HINTS.map(([t, d]) =>
+    `<button title="${esc(d)}">${esc(t)}</button>`).join('');
+  $('#chatHints').querySelectorAll('button').forEach(b => b.onclick = () => {
+    $('#chatInp').value = b.textContent; $('#chatInp').focus(); autoGrow();
+  });
+  $('#chatSend').onclick = sendChat;
+  $('#chatInp').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+  });
+  $('#chatInp').addEventListener('input', autoGrow);
+  $('#newConv').onclick = createConversation;
+  $('#projChip').onclick = bindViaChip;
+  loadConversations();
+}
+
+function autoGrow(){
+  const t = $('#chatInp');
+  t.style.height = 'auto';
+  t.style.height = Math.min(180, Math.max(44, t.scrollHeight)) + 'px';
+}
+
+/* ------------------------------------------------------------- 会话列表 */
+async function loadConversations(){
+  const r = await fetch('/api/conversations').then(x => x.json());
+  C.list = r.conversations || [];
+  if (!C.active || !C.list.some(c => c.id === C.active)){
+    if (C.list.length) await openConversation(C.list[0].id);
+    else await createConversation();     /* 一条都没有就现开一条 —— 界面永远可用 */
+    return;
+  }
+  renderConvList();
+}
+
+async function createConversation(){
+  await fetch('/api/conversations', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({})});
+  C.active = '';
+  await loadConversations();             /* 新的排最前，会自动打开它 */
+}
+
+function renderConvList(){
+  $('#convList').innerHTML = C.list.map(c => `
+    <div class="citem ${c.id === C.active ? 'on' : ''}" data-id="${esc(c.id)}">
+      <div class="t">${esc(c.title || '新对话')}</div>
+      <div class="m">${c.busy ? '<span class="d"></span>' : ''}${esc(c.project || '未绑定项目')}${c.busy ? ' · 在干活' : ''}</div>
+      <div class="rm" data-rm="${esc(c.id)}" title="删除这个会话（项目文件不动）">×</div>
+    </div>`).join('');
+  $('#convList').querySelectorAll('.citem').forEach(el => el.onclick = e => {
+    if (e.target.dataset.rm) return;
+    if (el.dataset.id !== C.active) openConversation(el.dataset.id);
+  });
+  $('#convList').querySelectorAll('[data-rm]').forEach(el => el.onclick = async e => {
+    e.stopPropagation();
+    if (!confirm('删除这个会话？\n（对话记录与主管的多轮记忆都会没；项目里的文件一个不动）')) return;
+    await fetch('/api/conversations/' + encodeURIComponent(el.dataset.rm), {method:'DELETE'});
+    if (el.dataset.rm === C.active) C.active = '';
+    await loadConversations();
+  });
+  $('#convHint').textContent = C.list.some(c => c.busy)
+    ? '有会话正在干活…' : '会话存在本机，刷新或重启服务都还在。';
+}
+
+async function openConversation(id){
+  if (C.es){ C.es.close(); C.es = null; }
+  C.active = id; C.live = null;
+  const st = await fetch(`/api/conversations/${encodeURIComponent(id)}/events`).then(r => r.json());
+  C.title = st.title || '对话';
+  C.project = st.project || '';
+  C.paidOk = !!st.paid_ok;
+  $('#convTitle').textContent = C.title;
+  $('#chatMsgs').innerHTML = '';
+  C.subs = {};                     /* 旧 DOM 没了，指向它们的引用必须一起清掉 */
+  $('#chatMsgs').classList.toggle('empty', !(st.events || []).length);
+  if (!(st.events || []).length) greet();
+  else st.events.forEach(handleChatEvent);
+  renderProjChip(); renderComposerHint(); renderConvList();
+  $('#chatHints').style.display = (st.events || []).length ? 'none' : '';
+  setChatPill(st.busy ? '它在干活' : '空闲', st.busy ? 'run' : '');
+  /* 刷新页面时如果那一轮还在跑，就接着看它的流（而不是傻等或者丢消息） */
+  if (st.busy){
+    C.streaming = true; $('#chatSend').disabled = true;
+    const last = [...(st.events || [])].reverse().find(e => e.turn_id);
+    if (last) streamChat(last.turn_id); else endTurn();
+  }
+}
+
+/* 空会话的欢迎屏。不是一条"系统提示" —— 那种一行小字放在左上角，
+   整页会显得没做完。 */
+function greet(){
+  const d = document.createElement('div');
+  d.className = 'empty';
+  d.innerHTML = `<div class="ei">${ICO.spark}</div>
+    <div class="et">${C.project ? '接着说，或者换个活儿' : '把这个视频交给它'}</div>
+    <div class="es">${C.project
+      ? `当前项目「${esc(C.project)}」。直接说要做什么 —— 加字幕、剪掉某句、加动效都行，它只做你要的那件事。`
+      : '可以直接说话，也可以先把视频拖进来。没有绑定项目也能聊 —— 它会自己找。'}</div>`;
+  $('#chatMsgs').appendChild(d);
+}
+
+function setChatPill(txt, kind){
+  const dot = $('#chatPill').querySelector('.dot');
+  dot.className = 'dot ' + (kind || '');
+  $('#chatPillTxt').textContent = txt;
+}
+
+function renderProjChip(){
+  /* 项目是"上下文"，不是主操作 —— 所以它是标题旁边一个小胶囊，不是按钮。
+     未绑定时虚化成虚线框，一眼能看出"还没选"。 */
+  const el = $('#projChip');
+  el.textContent = C.project || '未绑定项目';
+  el.classList.toggle('none', !C.project);
+  el.title = C.project ? `当前项目：${C.project}（点这里切换）` : '点这里绑定一个项目';
+}
+
+function renderComposerHint(){
+  const d = (S.meta && S.meta.disk) || {};
+  const parts = [C.project ? `当前项目 ${C.project}` : '未绑定项目'];
+  if (d.free_human) parts.push(`磁盘剩 ${d.free_human}`);
+  parts.push('Enter 发送 · Shift+Enter 换行');
+  $('#composerHint').textContent = parts.join(' · ');
+}
+
+/* 换项目走"点一下 chip"，不占对话的地方；也可以直接对它说"用 xxx 项目" */
+async function bindViaChip(){
+  const names = (S.projects || []).map(p => p.name);
+  if (!names.length){ noteMsg('还没有任何项目 —— 先丢一个视频进来吧（点「＋ 视频」或直接拖）。'); return; }
+  const pick = prompt('绑到哪个项目？（留空 = 解绑）\n\n' + names.join('\n'), C.project || '');
+  if (pick === null) return;
+  const name = pick.trim();
+  const r = await fetch(`/api/conversations/${encodeURIComponent(C.active)}/bind`, {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({project: name})});
+  if (!r.ok){ const j = await r.json().catch(() => ({})); noteMsg('换不了：' + (j.detail || r.status), 'err'); return; }
+  C.project = name;
+  renderProjChip(); renderComposerHint();
+  noteMsg(name ? `已切到项目「${name}」。` : '已解绑项目。');
+}
+
+async function deleteConversation(){
+  if (!C.active) return;
+  if (!confirm('删除当前会话？\n（对话记录与主管的多轮记忆都会没；项目里的文件一个不动）')) return;
+  await fetch('/api/conversations/' + encodeURIComponent(C.active), {method:'DELETE'});
+  C.active = '';
+  await loadConversations();
+}
+
+async function clearConversation(){
+  if (!C.active) return;
+  if (!confirm('清空这个会话的对话？\n（主管的多轮记忆也清掉；项目里的文件一个不动）')) return;
+  const r = await fetch(`/api/conversations/${encodeURIComponent(C.active)}/clear`, {method:'POST'});
+  if (!r.ok){ const j = await r.json().catch(() => ({})); noteMsg('清不了：' + (j.detail || r.status), 'err'); return; }
+  $('#chatMsgs').innerHTML = ''; C.live = null;
+  $('#chatMsgs').classList.add('empty');
+  greet();
+  $('#chatHints').style.display = '';
+}
+
+/* --------------------------------------------------------- 气泡与 markdown */
+function scrollMsgs(){ const m = $('#chatMsgs'); m.scrollTop = m.scrollHeight; }
+function push(el){
+  $('#chatMsgs').classList.remove('empty');    /* 一有内容就退出"欢迎页"布局 */
+  $('#chatMsgs').appendChild(el);
+  $('#chatHints').style.display = 'none';      /* 一开口就把新手提示收走 */
+  scrollMsgs();
+}
+
+function meMsg(text){
+  const d = document.createElement('div');
+  d.className = 'mrow me';
+  const m = document.createElement('div');
+  m.className = 'msg me'; m.textContent = text;
+  d.appendChild(m); push(d);
+}
+function botMsg(text, cls){
+  if (cls === 'note'){                          /* 说明类：不挂头像，一行小字 */
+    const n = document.createElement('div');
+    n.className = 'nrow'; n.textContent = text;
+    push(n); return n;
+  }
+  const d = document.createElement('div');
+  d.className = 'mrow';
+  d.innerHTML = AV();
+  const m = document.createElement('div');
+  m.className = 'msg bot' + (cls ? ' ' + cls : '');
+  /* 错误类是"系统口吻"，保持纯文本；主管说的话才走 markdown */
+  if (cls === 'err') m.textContent = text;
+  else m.innerHTML = `<div class="md">${md(text)}</div>`;
+  d.appendChild(m); push(d);
+  return d;
+}
+function noteMsg(text){ return botMsg(text, 'note'); }
+
+/* 正在说话的那条气泡（逐字往里追加） */
+function liveBubble(){
+  if (C.live && C.live.isConnected) return C.live;
+  const d = document.createElement('div');
+  d.className = 'mrow';
+  d.innerHTML = AV() + '<div class="msg bot"><div class="md"></div><span class="cur"></span></div>';
+  push(d);
+  C.live = d;
+  return d;
+}
+function liveAppend(text){
+  const b = liveBubble();
+  b.dataset.raw = (b.dataset.raw || '') + text;
+  b.querySelector('.md').innerHTML = md(b.dataset.raw);
+  scrollMsgs();
+}
+function liveFinal(text){
+  if (C.live && C.live.isConnected){
+    C.live.dataset.raw = text;
+    C.live.querySelector('.md').innerHTML = md(text);
+    const cur = C.live.querySelector('.cur'); if (cur) cur.remove();
+    C.live = null;
+    scrollMsgs();
+  } else {
+    botMsg(text);
+  }
+}
+function liveClose(){
+  if (C.live && C.live.isConnected){
+    /* 只有光标、一个字都没说出来 ⇒ 整条删掉，别留个空气泡 */
+    if (!(C.live.dataset.raw || '').trim()) C.live.remove();
+    else { const cur = C.live.querySelector('.cur'); if (cur) cur.remove(); }
+  }
+  C.live = null;
+}
+
+/* 极简 markdown。
+   为什么不引第三方库：这个页面是**零构建、零外网依赖**的（离线也要能用），
+   而对话里真正会出现的语法就那么几种。**先整体转义再做替换**，所以不会 XSS。 */
+function md(src){
+  const blocks = [];
+  let s = esc(String(src ?? ''));
+  s = s.replace(/```([\s\S]*?)```/g, (_, code) => {
+    blocks.push(`<pre><code>${code.replace(/^[\w-]*\n/, '')}</code></pre>`);
+    return `\u0000${blocks.length - 1}\u0000`;
+  });
+  /* 把占位符**切到单独一行**：否则 `文字```码```文字` 会生成 <p>…<pre>…</p>，
+     而 <pre> 不能出现在 <p> 里 —— 浏览器会自己把段落断掉，排版就乱了。
+     ⚠️ 只切**含占位符**的行：无脑 split 会把空行也切没了，
+     而空行是"段落/列表到此为止"的信号 —— 丢了它，列表会跑到段落后面去。 */
+  const lines = [];
+  for (const raw of s.split('\n')){
+    if (!raw.includes('\u0000')){ lines.push(raw); continue; }
+    for (const p of raw.split(/(\u0000\d+\u0000)/)){
+      if (p !== '') lines.push(p);
+    }
+  }
+  const out = []; let list = null; let para = []; let tbl = null;
+  const flushPara = () => { if (para.length){ out.push(`<p>${para.join('<br>')}</p>`); para = []; } };
+  const flushList = () => {
+    if (list){ out.push(`<${list.tag}>${list.items.map(i => `<li>${i}</li>`).join('')}</${list.tag}>`); list = null; }
+  };
+  const flushTbl = () => {
+    if (!tbl) return;
+    const head = tbl.rows[0] || [], body = tbl.rows.slice(1);
+    out.push('<table><thead><tr>' + head.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>'
+           + body.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('')
+           + '</tbody></table>');
+    tbl = null;
+  };
+  const flushAll = () => { flushPara(); flushList(); flushTbl(); };
+  const cells = line => line.replace(/^\s*\|/, '').replace(/\|\s*$/, '')
+                            .split('|').map(c => inline(c.trim()));
+  const isSep = line => /-/.test(line) && /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(line);
+
+  for (const raw of lines){
+    const line = raw.replace(/\s+$/, '');
+    let m;
+    if ((m = line.match(/^\u0000(\d+)\u0000$/))){ flushAll(); out.push(blocks[+m[1]]); continue; }
+    if (/^\s*\|.*\|/.test(line)){                       /* 表格 */
+      if (isSep(line)) continue;                        /* 分隔行 |---|---| 丢掉 */
+      if (!tbl){ flushPara(); flushList(); tbl = {rows: []}; }
+      tbl.rows.push(cells(line));
+      continue;
+    }
+    flushTbl();
+    if ((m = line.match(/^\s*[-*+]\s+(.*)$/))){ flushPara(); (list = list || {tag:'ul', items:[]}).items.push(inline(m[1])); continue; }
+    if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))){ flushPara(); (list = list || {tag:'ol', items:[]}).items.push(inline(m[1])); continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)){ flushPara(); flushList(); out.push('<hr>'); continue; }
+    if ((m = line.match(/^\s*#{1,6}\s+(.*)$/))){ flushPara(); flushList(); out.push(`<h3>${inline(m[1])}</h3>`); continue; }
+    if ((m = line.match(/^\s*&gt;\s?(.*)$/))){ flushPara(); flushList(); out.push(`<blockquote>${inline(m[1])}</blockquote>`); continue; }
+    if (!line.trim()){ flushAll(); continue; }
+    para.push(inline(line));
+  }
+  flushAll();
+  return out.join('');
+}
+
+function inline(s){
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+/* ---------------------------------------------------------------- 发送 */
+async function sendChat(){
+  const text = $('#chatInp').value.trim();
+  if (!text || C.streaming) return;
+  if (!C.active){ await loadConversations(); }
+  if (!C.active){ noteMsg('先建一个会话。', 'err'); return; }
+  meMsg(text);
+  $('#chatInp').value = ''; autoGrow();
+  C.streaming = true; $('#chatSend').disabled = true;
+  setChatPill('思考中', 'run');
+  try {
+    const r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({conversation_id: C.active, message: text})});
+    const j = await r.json();
+    if (!r.ok){ botMsg(j.detail || '发不出去', 'err'); endTurn(); return; }
+    if (j.title){ C.title = j.title; $('#convTitle').textContent = j.title; }
+    streamChat(j.turn_id);
+  } catch(e){
+    botMsg(String(e), 'err'); endTurn();
+  }
+}
+
+function endTurn(){
+  C.streaming = false; $('#chatSend').disabled = false;
+  liveClose();
+  setChatPill('空闲', '');
+  refreshConvListQuiet();
+}
+
+async function refreshConvListQuiet(){
+  try {
+    const r = await fetch('/api/conversations').then(x => x.json());
+    C.list = r.conversations || [];
+    renderConvList();
+  } catch(e){ /* 列表拉不到不影响正在看的这一条 */ }
+}
+
+function streamChat(turnId){
+  if (C.es) C.es.close();
+  const es = new EventSource('/api/chat/stream/' + turnId);
+  C.es = es;
+  es.onmessage = ev => {
+    let e; try { e = JSON.parse(ev.data); } catch(_) { return; }
+    handleChatEvent(e);
+    if (e.type === 'turn_done'){
+      es.close(); C.es = null;
+      /* 主管可能自己用 use_project 换了项目 —— 服务端已经写回，这里跟着更新 */
+      if (e.project !== undefined){
+        C.project = e.project || ''; renderProjChip(); renderComposerHint();
+      }
+      endTurn();
+    }
+  };
+  /* 服务端发 `event: done` 才代表这一轮结束（正常关闭也会触发 onerror，所以只认它） */
+  es.addEventListener('done', () => { es.close(); C.es = null; endTurn(); });
+}
+
+/* 把一轮里的事件渲染成对话流：主管说的话是气泡，工具调用是**可展开的卡** */
+function handleChatEvent(e){
+  const t = e.type;
+  /* ⚠️ `user` 必须回放出来 —— 它不是"旁支事件"，是**用户自己说的话**。
+     曾经把它和 turn_start/done 一起跳过，结果刷新页面后自己说过的话全不见了。 */
+  if (t === 'user'){ meMsg(e.text); return; }
+  if (t === 'turn_start' || t === 'done') return;
+  if (t === 'assistant_delta'){ liveAppend(e.text); return; }
+  if (t === 'assistant'){ liveFinal(e.text); return; }
+  if (t === 'note'){ noteMsg(e.text); return; }
+  if (t === 'error'){ liveClose(); botMsg(e.message, 'err'); return; }
+  if (t === 'tool_call'){
+    liveClose();                        /* 说话告一段落，过程卡另起一行 */
+    C.pending = { name: e.name, args: e.args || {} };
+    const wrap = document.createElement('div');
+    wrap.className = 'trow';
+    wrap.innerHTML = `<div class="tool fold">
+      <div class="th"><span class="ar">▼</span><span class="ic">${ICO.tool}</span>
+        <span class="nm">${esc(e.name)}</span>
+        <span class="lb">${esc(TOOL_LABEL[e.name] || '')}</span>
+        <span class="st run"><span class="spin"></span>进行中</span></div>
+      <pre class="out">${esc(JSON.stringify(e.args || {}, null, 1))}</pre></div>`;
+    wrap.querySelector('.th').onclick = () => wrap.querySelector('.tool').classList.toggle('fold');
+    push(wrap);
+    return;
+  }
+  if (t === 'tool_result'){
+    const cards = $('#chatMsgs').querySelectorAll('.tool');
+    const box = cards[cards.length - 1];
+    if (!box) return;
+    let data = null; let ret = e.content || '';
+    try { data = JSON.parse(ret); ret = JSON.stringify(data, null, 1); } catch(_) {}
+    const st = box.querySelector('.th .st');
+    const ok = data && data.ok === true;
+    st.className = 'st ' + (ok ? 'ok' : 'bad');
+    st.textContent = data && data.ok === false
+      ? ('失败：' + (data.cause || '未给原因'))
+      : (ok ? '完成' : '已返回');
+    /* 参数和返回都留着 —— 只看返回的话，"它对什么参数做的"就没法复核了。
+       ⚠️ 必须用 pre.out 定位：派活卡里还有若干子步骤的 <pre>，
+       `querySelector('pre')` 会抓到第一个子步骤那一条，把结论写错地方。 */
+    const args = (C.pending && C.pending.args) || {};
+    const hasArgs = Object.keys(args).length > 0;
+    box.querySelector('pre.out').textContent =
+      (hasArgs ? '参数\n' + JSON.stringify(args, null, 1) + '\n\n' : '') + '返回\n' + ret;
+    scrollMsgs();
+    /* 需要用户授权花钱 ⇒ 直接在对话里弹授权卡（工具返回里带 needs_authorization） */
+    if (data && data.needs_authorization) showAuthCard(data);
+    return;
+  }
+  /* ---- 子代理内部的动作（由主管侧转发的嵌套事件）---- */
+  if (t === 'sub_start'){ subOpen(e); return; }
+  if (t === 'sub_step'){ subStep(e); return; }
+  if (t === 'sub_step_result'){ subStepResult(e); return; }
+  if (t === 'sub_wait'){ subWait(e); return; }
+  if (t === 'sub_end'){ delete C.subs[e.id]; return; }
+  if (t === 'suggest_standard_run'){
+    showRunConfirm();
+    return;
+  }
+}
+
+/* ------------------------------------------------------------------ 派活
+   主管调 `delegate_xxx` 时，最后那张工具卡就是"派活卡"。子代理在自己那个
+   ReAct 循环里干了什么，通过 sub_* 事件挂到这张卡里面 —— 主从结构因此**看得见**。
+   为什么不做成独立卡片：那样"谁派的、派给谁、他干了什么"会散成三张卡，
+   读起来像两件不相干的事。 */
+
+function subOpen(e){
+  const cards = $('#chatMsgs').querySelectorAll('.tool');
+  const box = cards[cards.length - 1];
+  if (!box) return;
+  box.classList.add('delegate');
+  box.classList.remove('fold');       /* 派活的卡默认张开，能看见里面在干什么 */
+  const holder = document.createElement('div');
+  holder.className = 'substeps';
+  box.insertBefore(holder, box.querySelector('pre.out'));
+  C.subs[e.id] = holder;
+  scrollMsgs();
+}
+
+/* 排队中：它和另一个正在跑的子代理有产物冲突，要等对方。
+   必须**说出来** —— 不然用户看到的是"卡住了"，会以为坏了。
+   （这类"安静地不动"和"安静地重复调用"是同一个性质的问题：不报错，但看着像故障。） */
+function subWait(e){
+  const holder = C.subs[e.id];
+  if (!holder || holder.querySelector('.subwait')) return;
+  const d = document.createElement('div');
+  d.className = 'subwait';
+  d.textContent = `排队中 —— ${e.reason || '等另一个子代理跑完'}`;
+  holder.appendChild(d);
+  scrollMsgs();
+}
+
+function subStep(e){
+  const holder = C.subs[e.id];
+  if (!holder) return;
+  const w = document.createElement('div');
+  w.className = 'subwrap';
+  w.dataset.tool = e.tool;
+  w.innerHTML = `<div class="sub2"><span class="nm">${esc(e.tool)}</span>
+      <span class="lb">${esc(TOOL_LABEL[e.tool] || '')}</span>
+      <span class="st run"><span class="spin"></span></span></div>
+    <pre>${esc(JSON.stringify(e.args || {}, null, 1))}</pre>`;
+  w.querySelector('.sub2').onclick = () => w.classList.toggle('open');
+  holder.appendChild(w);
+  scrollMsgs();
+}
+
+function subStepResult(e){
+  const holder = C.subs[e.id];
+  if (!holder) return;
+  /* 从后往前找最近一条**同名且还在跑**的 —— 同一个工具可能被调好几次，
+     配对必须认"最近的未完成那条"，否则第二次的结果会盖掉第一次的。 */
+  const rows = holder.querySelectorAll('.subwrap');
+  let w = null;
+  for (let i = rows.length - 1; i >= 0; i--){
+    if (rows[i].dataset.tool === e.tool && rows[i].querySelector('.st.run')){ w = rows[i]; break; }
+  }
+  if (!w) w = rows[rows.length - 1];
+  if (!w) return;
+  const st = w.querySelector('.st');
+  st.className = 'st ' + (e.ok === true ? 'ok' : (e.ok === false ? 'bad' : ''));
+  st.textContent = e.ok === false ? ('失败' + (e.cause ? '：' + e.cause : ''))
+                                  : (e.ok === true ? '完成' : '已返回');
+  let txt = e.content || '';
+  try { txt = JSON.stringify(JSON.parse(txt), null, 1); } catch(_){}
+  w.querySelector('pre').textContent = txt;
+  scrollMsgs();
+}
+
+function showAuthCard(data){
+  const price = data['价格元每次'];
+  const wrap = document.createElement('div');
+  wrap.className = 'trow';
+  wrap.innerHTML = `<div class="auth">
+      <div class="q">${esc(data['说明'] || '这一步要花钱，需要你授权。')}
+        ${price != null ? `<br><b>价格：¥ ${esc(price)} / 次</b>` : ''}</div>
+      <div class="row"><button class="yes">授权本次付费</button><button class="no">不授权</button></div>
+    </div>`;
+  const box = wrap.querySelector('.auth');
+  const settle = async ok => {
+    await fetch('/api/chat/authorize', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({conversation_id: C.active, ok})});
+    C.paidOk = ok;
+    box.querySelector('.row').innerHTML = ok
+      ? '<span class="done" style="flex:1;padding:9px;border-radius:9px;border:1px solid;text-align:center;font-size:13px">已授权本次付费（用完即收回）</span>'
+      : '<span style="flex:1;color:var(--tx3);font-size:12.5px;align-self:center">已拒绝 —— 这一步不会执行</span>';
+    if (ok) noteMsg('已授权。再说一句「继续」，主管就会带着授权把这步做完。');
+  };
+  box.querySelector('.yes').onclick = () => settle(true);
+  box.querySelector('.no').onclick = () => settle(false);
+  push(wrap);
+}
+
+/* 主管建议跑「标准全流程」⇒ 弹一张确认卡，**绝不自动跑**。
+   为什么必须问一句：全流程是分钟级（转写 + 全片编码）而且吃几百 MB 磁盘，
+   而主管是"会说话的东西" —— 它判断错了不该直接变成真实开销。
+   ⛔ 之前这里是 `startRun(null)` 自动启动，等于让模型的一句话直接点火。 */
+function showRunConfirm(){
+  if (document.querySelector('.auth[data-kind="run"]')) return;   /* 同时只留一张 */
+  const wrap = document.createElement('div');
+  wrap.className = 'trow';
+  wrap.innerHTML = `<div class="auth" data-kind="run">
+      <div class="q"><b>主管建议跑「标准全流程」</b><br>
+        会依次做：转写 → 裁剪 → 字幕 → 烧录 → 动效 → 混音 → 质检。
+        这是<b>分钟级</b>的活、占几百 MB；其中<b>花钱的 BGM 仍会停下来问你</b>。</div>
+      <div class="row"><button class="yes">开始跑</button><button class="no">先不跑</button></div>
+    </div>`;
+  const box = wrap.querySelector('.auth');
+  box.querySelector('.yes').onclick = () => {
+    box.querySelector('.row').innerHTML =
+      '<span class="done" style="flex:1;padding:9px;border-radius:9px;border:1px solid;text-align:center;font-size:13px">已开始 —— 请看流水线面板</span>';
+    /* ⚠️ 必须把「流水线面板选的项目」对齐到「会话绑定的项目」：
+       主管是**按会话上下文**判断的（它看到的是 C.project），
+       而 startRun 读的是 S.project —— 两者是**两套独立状态**
+       （用户在面板里换过项目就会不一致）。不对齐 ⇒ **静默跑错项目**。 */
+    if (C.project) { S.project = C.project; S.thread = ''; }
+    switchView('flow');
+    startRun(null);
+  };
+  box.querySelector('.no').onclick = () => {
+    box.querySelector('.row').innerHTML =
+      '<span style="flex:1;color:var(--tx3);font-size:12.5px;align-self:center">已取消 —— 没有跑任何东西</span>';
+  };
+  push(wrap);
+}
+
+/* ---------------------------------------------------------------- 事件 */
+$('#runBtn').onclick = () => startRun(null);
+$('#stateBtn').onclick = () => {
+  if (S.mode === 'real' && S.project) { refreshState(); addLog(null, '只读刷新：' + S.project, 'dim'); }
+  else { addLog(null, '演练模式没有可查的历史断点 —— 每次演练都是新 thread。', 'dim'); }
+};
+window.addEventListener('beforeunload', () => { if (S.es) S.es.close(); if (C.es) C.es.close(); });
+boot().catch(e => {
+  const t = $('#convTitle');
+  if (t) t.textContent = '启动失败：' + e;
+  const m = $('#chatMsgs');
+  if (m) m.innerHTML = `<div class="msg bot err">启动失败：${esc(String(e))}</div>`;
+});
+</script>
+</body>
+</html>

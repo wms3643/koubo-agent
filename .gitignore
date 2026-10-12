@@ -1,0 +1,32 @@
+# Local media, generated artifacts, and user session data
+projects/
+langgraph_app/.state/
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+*.err.log
+
+# Local credentials and runtime configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.credentials.yaml
+
+# Python and Node build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+dist/
+build/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

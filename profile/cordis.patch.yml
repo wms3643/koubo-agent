@@ -1,0 +1,69 @@
+# 部署覆盖层：把口播剪辑系统挂到 DSH 上
+#
+# ⛔ 头号坑（2026-10-04 真跑抓到）：`name` **必须指向入口文件，不能指向包目录**。
+#    写 `../plugin`（目录）时，loader 会归一化成目录 URL，ESM 抛
+#    `ERR_UNSUPPORTED_DIR_IMPORT`，结果是**整个插件静默不激活**、5 个 kb_* 工具全部消失，
+#    启动日志里只有一行容易被忽略的 `warning: 1 entry did not activate`。
+#    诊断脚本：`node tools/check-plugin-import.mjs`
+#
+# 格式依据（一手）—— 取自 `dsh --profile web --dump-config-schema`：
+#   · 配置根是 **entry 数组**；overlay 用 `$defs.patchList` = **array of $defs.patch**
+#   · `$defs.patch` = entryMetadata + { insert: entryList }
+#   · `entryList` = array of entry，每个 entry **必须**有 `name`
+#   · 原文："An insert appends entries, optionally inside the group identified by id.
+#     Other patches replace supplied fields; **config is replaced wholesale, not deep-merged**.
+#     Unknown targets and non-insert patches without a nonempty id are warned and skipped."
+#     "Inserted relative plugin paths are anchored **beside their patch file**."
+#   · 层级顺序：bundle → profile → home → CLI(--patch)
+#
+# 用法：
+#   A) 不改用户目录，直接叠加：
+#        dsh --profile web --patch <本文件> --dump-config
+#        dsh headless --patch <本文件> "…"
+#   B) 长期生效：把下面的顶层条目**追加**进 ~/.dsh/profiles/web/cordis.patch.yml
+#      （⚠️ 那时相对路径不再相对本文件，用文件末尾注释里的绝对路径版）
+#   C) 官方命令：dsh plugin --profile web add <本仓库>/plugin
+
+- insert:
+    # ✅ 指向**入口文件**；相对路径的锚点是**本 patch 文件所在目录**
+    - id: plugin-koubo
+      name: '../plugin/src/index.js'
+      config:
+        # 带 faster-whisper 的解释器（本机已验证；换机器必须改）
+        python: 'C:/Users/lenovo/.workbuddy/binaries/python/envs/default/Scripts/python.exe'
+        # 确定性内核入口
+        kbEntry: 'C:/Users/lenovo/Desktop/AI学习/koubo-agent-dsh/kb.py'
+        # 项目根目录：kb_* 工具**只允许**操作它下面的项目（越界 → cause=project_outside_root）。
+        # ⚠️ 这条边界以前只写在本注释里、代码并不校验；2026-10-05 起已真的强制（plugin_smoke §9）。
+        # 需要在别处工作时改这里（或设 KB_PROJECTS）。
+        projectsRoot: 'C:/Users/lenovo/Desktop/AI学习/koubo-agent-dsh/projects'
+        # 超时按阶段分档（见 docs/contracts.md §一「超时（按阶段分档）」）；
+        # 需要单独放宽某个阶段时覆盖它（毫秒）：
+        # timeouts:
+        #   transcribe: 5400000      # 90 分钟
+        #   qc: 600000               # 10 分钟（默认）
+
+# ── 可选：子代理 / 控制工具 / 团队协作 ───────────────────────────────────
+# ⛔ **DSH 没有「子代理名册目录」**（本机 296 个官方包里没有 dsh-subagent-library）。
+#    子代理 = 挂一个 '@deepseek-ai/dsh-tool-subagent' 实例，配置在另一个 patch：
+#        dsh --patch agents/subagents.patch.yml
+#    ⚠️ 顺序：本 patch（注册 kb_*）必须在前 —— toolFilter.allow 里的工具名在实例化时校验。
+# 想把 DSH 的团队协作打开（默认禁用），另加一个顶层条目：
+#
+# - insert:
+#     - id: agent-team
+#       name: '@deepseek-ai/dsh-experimental-tool-agent-team'
+#     - id: agent-team-profile
+#       name: '@deepseek-ai/dsh-experimental-agent-team-profile'
+#
+# ⚠️ provider id 冲突会让整个 profile 的插件树启动失败（DSH 是 fail-loud）。
+
+# ── 用法 B 的绝对路径版（复制进 ~/.dsh/profiles/web/cordis.patch.yml 时用）──
+#
+# - insert:
+#     - id: plugin-koubo
+#       name: 'C:/Users/lenovo/Desktop/AI学习/koubo-agent-dsh/plugin/src/index.js'
+#       config:
+#         python: 'C:/Users/lenovo/.workbuddy/binaries/python/envs/default/Scripts/python.exe'
+#         kbEntry: 'C:/Users/lenovo/Desktop/AI学习/koubo-agent-dsh/kb.py'
+#         projectsRoot: 'C:/Users/lenovo/Desktop/AI学习/koubo-agent-dsh/projects'

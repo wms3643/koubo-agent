@@ -1,0 +1,26 @@
+{
+  "name": "dsh-plugin-koubo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "口播剪辑流水线的确定性内核 → DeepSeek Harness 工具插件（一阶段一工具，11 个 kb_* + 2 条 monotonic 护栏）",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/index.js",
+    "cordis.patch.yml"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "dsh": {
+    "bundle": "cordis.patch.yml"
+  }
+}

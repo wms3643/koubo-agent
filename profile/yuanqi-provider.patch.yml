@@ -1,0 +1,48 @@
+# 元气中转站（api.lk888.ai）作为 DSH 的一条 OpenAI 兼容模型路由。
+#
+# 依据（一手）：`@deepseek-ai/dsh-llm-pi-ai/README.md` 的「Configure provider routes」
+#   · 手写路由**必须**有 `api` + `baseURL` + 非空 `models`
+#   · `api: openai-completions` 的模型发现走 `GET {baseURL}/models` + bearer
+#     （已实测：`HTTP 200`、180 个模型，含 doubao / deepseek / glm / qwen）
+#   · ⭐ `apiKeyEnv` 是**凭据引用**，**密钥不进配置文件**；引用解析不到会 fail-loud 报 MISSING_CREDENTIAL
+#   · ⚠️ patch 的 `config` 是**整体替换、不是深合并** ⇒ `agent-default-model` 的两个键都必须重述
+#
+# 凭据放 `$DSH_HOME/.credentials.yaml`（version 1 + refs，只有本 OS 用户可读）：
+#     version: 1
+#     refs:
+#       YUANQI_API_KEY: sk-...
+#
+# 用法：
+#   dsh --profile web --patch <本文件> --dump-config          # 只看合成结果，不启动
+#   dsh headless --patch <本文件> "…"                          # 真跑一次
+#
+# 回退：删掉本文件即可（不改它就不会影响原有 provider 设置）。
+
+- id: llm-pi-ai
+  config:
+    providers:
+      yuanqi:
+        displayName: 元气中转站
+        apiKeyEnv: YUANQI_API_KEY
+        api: openai-completions
+        baseURL: https://api.lk888.ai/v1
+        defaultContextWindow: 262144
+        defaultMaxTokens: 32768
+        models:
+          - id: doubao-seed-2-0-pro-260215
+            name: Doubao Seed 2.0 Pro
+          - id: doubao-seed-2-1-pro-260628
+            name: Doubao Seed 2.1 Pro
+          - id: deepseek-v4-pro
+            name: DeepSeek V4 Pro
+          - id: deepseek-v4-flash
+            name: DeepSeek V4 Flash
+          - id: glm-5.3-flash
+            name: GLM 5.3 Flash
+
+# 默认模型指向该路由（不写这一段则沿用 base 的 deepseek-official/deepseek-flash）。
+# ⚠️ 若你想保留原有默认，把下面这段注释掉，改在会话里手动选模型。
+- id: agent-default-model
+  config:
+    provider: yuanqi
+    model: doubao-seed-2-0-pro-260215
