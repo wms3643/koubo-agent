@@ -1,4 +1,4 @@
-# koubo-agent-dsh · 口播剪辑多代理协作系统
+# koubo-agent · 口播剪辑多代理协作系统
 
 本仓库包含两种编排实现：`plugin/` + `agents/` 是早期的 DeepSeek Harness 版本，
 `langgraph_app/` 是后续的 LangGraph 版本。两者共用 `pipeline/` 和 `kb.py` 中的
@@ -64,7 +64,7 @@ python -m pytest langgraph_app/tests -q -p no:cacheprovider
 
 ### 1. 验证确定性内核（不依赖 DSH）
 ```bash
-cd koubo-agent-dsh
+cd koubo-agent
 python kb.py status --project projects/_smoke
 ```
 退出码：`0` 通过 / `2` 业务性失败（带 `cause`）/ `1` 异常。
@@ -206,7 +206,7 @@ plugin-koubo (file:///…): failed to import
 ## 目录结构
 
 ```
-koubo-agent-dsh/
+koubo-agent/
 ├─ kb.py                     统一入口（唯一 CLI；DSH 侧只 shell 它）
 ├─ pipeline/                 确定性内核（纯 Python，零 LLM）stage1..7
 ├─ plugin/src/index.js       DSH 工具插件（**一阶段一工具，11 个** + 2 条 monotonic 护栏 + 后台作业）
