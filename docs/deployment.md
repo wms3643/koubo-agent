@@ -35,6 +35,23 @@ python -m langgraph_app.database check
 
 会话快照以项目根目录的摘要区分工作区；同一部署应保持项目根目录路径稳定。检查点库按部署实例分配，两个独立服务不应复用同一组检查点 schema。
 
+## Redis 检查点缓存
+
+Compose 同时提供 Redis 7.4.2。启用 PostgreSQL 后，可设置以下环境变量缓存检查点快照：
+
+```powershell
+$env:REDIS_URL = 'redis://127.0.0.1:6379/0'
+$env:KB_CHECKPOINT_CACHE_TTL = '60'
+```
+
+读取检查点时先查询 Redis，未命中则从 PostgreSQL 读取并缓存，默认 TTL 为 60 秒。缓存包含检查点、元数据和待处理写入，单条超过 2 MiB 时跳过缓存。历史列表仍直接查询 PostgreSQL。流程检查点与主管对话使用不同缓存命名空间。
+
+检查点、待处理写入及删除操作始终提交 PostgreSQL，并在同一进程共享锁保护下提升缓存代数，使旧快照立即失效。失效后的键通过 TTL 清理；进程重启使用新的键前缀，避免重新使用旧缓存。Redis 连接、读取、写入或解码失败时，该进程停用对应缓存，后续读取 PostgreSQL；修复 Redis 后重启应用重新启用缓存。数据库写入错误仍会向调用方返回，不使用缓存掩盖持久化故障。
+
+Redis 只承担缓存，关闭 RDB/AOF，内存上限为 128 MiB，采用 `allkeys-lru` 淘汰策略，不配置数据卷。缓存不纳入备份，丢失后按需重建。默认端口仅绑定本机；远程连接可使用带认证的 `rediss://` 地址。不设置 `REDIS_URL` 或选用 SQLite 时不启用缓存。
+
+缓存遵循当前单进程部署约束：检查点读写必须通过应用的 Saver 接口，其他进程不能直接修改同一检查点 schema。它不提供多进程缓存一致性或任务分发。
+
 ## 服务启动
 
 ```powershell
@@ -54,10 +71,13 @@ Web 服务使用一个进程，任务队列、对话对象和运行锁由该进�
 
 ```powershell
 $env:KB_TEST_DATABASE_URL = $env:DATABASE_URL
+$env:KB_TEST_REDIS_URL = $env:REDIS_URL
 python -m pytest langgraph_app/tests -q -p no:cacheprovider
 ```
 
 测试连接账号需要创建和删除测试数据库的权限。每轮创建名称带随机标识的独立测试库，结束后清理；不改动连接地址所指向数据库中的业务记录。未设置 `KB_TEST_DATABASE_URL` 时跳过 PostgreSQL 集成用例，SQLite 与流程回归照常执行。GitHub Actions 使用独立 PostgreSQL 服务运行全部存储用例。
+
+Redis 集成测试同时需要 `KB_TEST_REDIS_URL`，使用随机线程标识，不执行全库清空。用例覆盖缓存命中、TTL 到期、待处理写入失效、跨连接删除、schema 隔离、缓存损坏降级，以及开启缓存时的付费审批恢复和 Web 会话恢复。CI 同时启动 PostgreSQL 与 Redis 服务。
 
 ## 备份与升级
 

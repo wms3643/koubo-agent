@@ -74,7 +74,7 @@ def open_checkpoint_db(config: AppConfig, *, purpose: str = "pipeline"):
     return sqlite3.connect(str(path), check_same_thread=False, timeout=30)
 
 
-def make_checkpointer(conn):
+def make_checkpointer(conn, config: AppConfig | None = None, *, purpose: str = "pipeline"):
     """用同一接口构造 SQLite 或 PostgreSQL 检查点存储。"""
     if isinstance(conn, sqlite3.Connection):
         from langgraph.checkpoint.sqlite import SqliteSaver
@@ -82,4 +82,8 @@ def make_checkpointer(conn):
         return SqliteSaver(conn)
     from langgraph.checkpoint.postgres import PostgresSaver
 
+    if config is not None and config.redis_url:
+        from .checkpoint_cache import CachedPostgresSaver
+
+        return CachedPostgresSaver(conn, config, purpose=purpose)
     return PostgresSaver(conn)

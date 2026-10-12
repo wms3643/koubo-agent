@@ -24,7 +24,7 @@ class ApprovalState(TypedDict, total=False):
     approved: bool
 
 
-def approval_graph(conn):
+def approval_graph(conn, config=None, *, purpose="pipeline"):
     graph = StateGraph(ApprovalState)
 
     def approve(state):
@@ -33,7 +33,7 @@ def approval_graph(conn):
     graph.add_node("approval", approve)
     graph.add_edge(START, "approval")
     graph.add_edge("approval", END)
-    return graph.compile(checkpointer=make_checkpointer(conn))
+    return graph.compile(checkpointer=make_checkpointer(conn, config, purpose=purpose))
 
 
 def test_sqlite_resume_and_chat_isolation(tmp_path):
@@ -180,12 +180,12 @@ def test_postgres_pipeline_resumes_without_repeating_paid_step(postgres_config, 
     thread = "pipeline-" + uuid.uuid4().hex
     config = replace(postgres_config, projects_root=tmp_path)
     with closing(open_checkpoint_db(config)) as conn:
-        app = make_app(config, client, checkpointer=make_checkpointer(conn))
+        app = make_app(config, client, checkpointer=make_checkpointer(conn, config))
         _, graph_config = run_app(app, tmp_path, thread=thread)
         assert app.get_state(graph_config).interrupts
         assert client.calls.count("bgm:paid") == 0
     with closing(open_checkpoint_db(config)) as conn:
-        app = make_app(config, client, checkpointer=make_checkpointer(conn))
+        app = make_app(config, client, checkpointer=make_checkpointer(conn, config))
         result = app.invoke(Command(resume=True), graph_config)
         assert not result.get("halts")
         assert client.calls.count("bgm:paid") == 1
@@ -243,3 +243,119 @@ def test_database_failure_health_and_startup(monkeypatch):
     with pytest.raises(RuntimeError, match="Database unavailable"):
         with TestClient(server.app):
             pass
+
+
+@pytest.fixture
+def cached_config(postgres_config):
+    url = os.environ.get("KB_TEST_REDIS_URL")
+    if not url:
+        pytest.skip("Set KB_TEST_REDIS_URL to run Redis integration tests")
+    from redis import Redis
+
+    client = Redis.from_url(url)
+    try:
+        assert client.ping()
+    finally:
+        client.close()
+    return replace(postgres_config, redis_url=url)
+
+
+def test_redis_hit_expiry_and_pending_write_invalidation(cached_config, monkeypatch):
+    from langgraph.checkpoint.postgres import PostgresSaver
+
+    thread = {"configurable": {"thread_id": "cache-" + uuid.uuid4().hex}}
+    with closing(open_checkpoint_db(cached_config)) as conn:
+        app = approval_graph(conn, cached_config)
+        app.invoke({"text": "cached approval"}, thread)
+        saver = app.checkpointer
+        first = saver.get_tuple(thread)
+        key = saver._key(thread)
+        assert 0 < saver.cache.client.ttl(key) <= cached_config.checkpoint_cache_ttl
+        original = PostgresSaver.get_tuple
+        calls = []
+
+        def counted(self, config):
+            calls.append(config)
+            return original(self, config)
+
+        monkeypatch.setattr(PostgresSaver, "get_tuple", counted)
+        assert saver.get_tuple(thread) == first
+        assert not calls  # 热缓存实际跳过 PostgreSQL 快照查询。
+        saver.cache.client.pexpire(key, 1)
+        import time
+        time.sleep(0.02)
+        assert saver.get_tuple(thread) == first
+        assert len(calls) == 1
+        saver.put_writes(first.config, [("extra", "new write")], "cache-test-task")
+        assert ("cache-test-task", "extra", "new write") in saver.get_tuple(thread).pending_writes
+        assert len(calls) == 2
+        assert app.invoke(Command(resume=True), thread)["approved"] is True
+        assert not app.get_state(thread).interrupts
+
+
+def test_redis_shared_invalidation_and_schema_isolation(cached_config):
+    thread = {"configurable": {"thread_id": "shared-" + uuid.uuid4().hex}}
+    with closing(open_checkpoint_db(cached_config)) as one, closing(open_checkpoint_db(cached_config)) as two:
+        app = approval_graph(one, cached_config)
+        app.invoke({"text": "shared"}, thread)
+        reader = make_checkpointer(two, cached_config)
+        assert reader.get_tuple(thread)
+        app.checkpointer.delete_thread(thread["configurable"]["thread_id"])
+        assert reader.get_tuple(thread) is None
+    with closing(open_checkpoint_db(cached_config, purpose="chat")) as conn:
+        app = approval_graph(conn, cached_config, purpose="chat")
+        app.invoke({"text": "chat only"}, thread)
+        assert app.checkpointer.get_tuple(thread)
+    with closing(open_checkpoint_db(cached_config)) as conn:
+        assert make_checkpointer(conn, cached_config).get_tuple(thread) is None
+
+
+def test_redis_corruption_falls_back_and_stays_disabled(cached_config):
+    from langgraph_app.checkpoint_cache import _STATES
+
+    thread = {"configurable": {"thread_id": "corrupt-" + uuid.uuid4().hex}}
+    with closing(open_checkpoint_db(cached_config)) as conn:
+        saver = make_checkpointer(conn, cached_config)
+        app = approval_graph(conn, cached_config)
+        app.invoke({"text": "recover from database"}, thread)
+        assert saver.get_tuple(thread)
+        saver.cache.client.set(saver._key(thread), b"invalid cache", ex=60)
+        try:
+            assert saver.get_tuple(thread).checkpoint["channel_values"]["text"] == "recover from database"
+            assert saver.cache.disabled
+            assert app.invoke(Command(resume=False), thread)["approved"] is False
+        finally:
+            _STATES.pop(saver.scope, None)
+
+
+def test_redis_unavailable_still_persists_and_resumes(postgres_config):
+    config = replace(postgres_config, redis_url="redis://127.0.0.1:1/0")
+    thread = {"configurable": {"thread_id": "offline-" + uuid.uuid4().hex}}
+    with closing(open_checkpoint_db(config)) as conn:
+        app = approval_graph(conn, config)
+        app.invoke({"text": "no redis"}, thread)
+        assert app.checkpointer.cache.disabled
+        assert app.get_state(thread).interrupts
+    with closing(open_checkpoint_db(config)) as conn:
+        assert approval_graph(conn, config).invoke(Command(resume=True), thread)["approved"] is True
+
+
+def test_cache_config_and_sqlite_bypass(monkeypatch, tmp_path):
+    monkeypatch.setenv("REDIS_URL", "redis://:secret@localhost/0")
+    monkeypatch.setenv("KB_CHECKPOINT_CACHE_TTL", "30")
+    config = AppConfig.from_env(checkpoint_db=tmp_path / "sqlite.db", database_url=None)
+    assert config.checkpoint_cache_ttl == 30
+    assert "secret" not in repr(config)
+    with closing(open_checkpoint_db(config)) as conn:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        assert isinstance(make_checkpointer(conn, config), SqliteSaver)
+    with pytest.raises(ValueError):
+        replace(config, checkpoint_cache_ttl=0)
+
+
+def test_redis_pipeline_paid_approval_recovery(cached_config, tmp_path):
+    test_postgres_pipeline_resumes_without_repeating_paid_step(cached_config, tmp_path)
+
+
+def test_redis_web_conversation_recovery(cached_config, monkeypatch):
+    test_postgres_web_restart_and_delete_memory(cached_config, monkeypatch)

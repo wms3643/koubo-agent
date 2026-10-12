@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = open_checkpoint_db(config)
     try:
-        app = build_graph(config, checkpointer=make_checkpointer(conn))
+        app = build_graph(config, checkpointer=make_checkpointer(conn, config))
         if args.status:
             snapshot = app.get_state(cfg)
             values = (snapshot.values if snapshot else {}) or {}

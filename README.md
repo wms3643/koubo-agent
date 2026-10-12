@@ -59,6 +59,8 @@ python -m langgraph_app.webapp.server
 
 以上 `python` 应使用已安装依赖的解释器。数据库容器、连接配置、备份和集成测试步骤见 [部署与运行](docs/deployment.md)。未设置 `DATABASE_URL` 时使用本地 SQLite；选用 PostgreSQL 后，连接或迁移错误会阻止启动。
 
+PostgreSQL 模式下可通过 `REDIS_URL` 启用检查点快照读缓存，`KB_CHECKPOINT_CACHE_TTL` 控制有效期（默认 60 秒）。数据库写入后立即使相关缓存失效；Redis 故障时直接读取 PostgreSQL。Compose 提供无持久化、限制内存的 Redis 实例。缓存沿用单进程部署约束。
+
 默认监听 [http://127.0.0.1:8760/](http://127.0.0.1:8760/)。标准流程的命令行入口为：
 
 ```powershell

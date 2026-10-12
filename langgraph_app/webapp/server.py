@@ -292,7 +292,7 @@ def read_state(config: AppConfig, project_dir: Path, thread_id: str) -> dict:
     conn = open_checkpoint_db(config)
     try:
         app = build_graph(config, nodes=_readonly_nodes(config),
-                          checkpointer=make_checkpointer(conn))
+                          checkpointer=make_checkpointer(conn, config))
         cfg = {"configurable": {"thread_id": thread_id}}
         snap = app.get_state(cfg)
         values = (snap.values if snap else {}) or {}
@@ -445,7 +445,7 @@ def _execute(run: Run, config: AppConfig) -> None:
     conn = None
     try:
         conn = open_checkpoint_db(config)
-        checkpointer = make_checkpointer(conn)
+        checkpointer = make_checkpointer(conn, config)
 
         if run.mode == "rehearsal":
             app = RH.build_rehearsal_app(config, run.scenario or "happy", checkpointer)
@@ -947,7 +947,7 @@ def _ensure_director(cfg: AppConfig, c: Conversation) -> Any:
 
     c.conn = open_checkpoint_db(cfg, purpose="chat")
     try:
-        c.director = make_director(cfg, pdir, checkpointer=make_checkpointer(c.conn))
+        c.director = make_director(cfg, pdir, checkpointer=make_checkpointer(c.conn, cfg, purpose="chat"))
     except Exception:
         c.conn.close()
         c.conn = None
@@ -996,7 +996,7 @@ def _delete_memory(c: Conversation, cfg: AppConfig) -> None:
     """删除持久化记忆；重启后未创建主管的会话也需要清理。"""
     conn = c.conn or open_checkpoint_db(cfg, purpose="chat")
     try:
-        make_checkpointer(conn).delete_thread(c.id)
+        make_checkpointer(conn, cfg, purpose="chat").delete_thread(c.id)
     finally:
         if c.conn is None:
             conn.close()

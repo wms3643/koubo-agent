@@ -121,6 +121,12 @@ class AppConfig:
         default_factory=lambda: REPO_ROOT / "langgraph_app" / ".state" / "checkpoints.sqlite"
     )
     database_url: str | None = field(default=None, repr=False)
+    redis_url: str | None = field(default=None, repr=False)
+    checkpoint_cache_ttl: int = 60
+
+    def __post_init__(self):
+        if self.checkpoint_cache_ttl <= 0:
+            raise ValueError("KB_CHECKPOINT_CACHE_TTL must be positive")
 
     @property
     def storage_backend(self) -> str:
@@ -136,6 +142,7 @@ class AppConfig:
             KB_TEXT_MODEL / KB_VISION_MODEL / KB_TEMPERATURE —— 模型选择
             KB_CHECKPOINT_DB                          —— 断点续跑库位置
             DATABASE_URL                              —— PostgreSQL 连接；设置后启用服务端存储
+            REDIS_URL / KB_CHECKPOINT_CACHE_TTL        —— 可选检查点缓存与有效期（秒）
         """
         env = os.environ.get
         key = next((env(n) for n in KEY_ENV_NAMES if env(n)), None)
@@ -155,6 +162,8 @@ class AppConfig:
             checkpoint_db=Path(env("KB_CHECKPOINT_DB")
                                or (REPO_ROOT / "langgraph_app" / ".state" / "checkpoints.sqlite")),
             database_url=(env("DATABASE_URL") or "").strip() or None,
+            redis_url=(env("REDIS_URL") or "").strip() or None,
+            checkpoint_cache_ttl=int(env("KB_CHECKPOINT_CACHE_TTL") or 60),
         )
         if not overrides:
             return cfg
